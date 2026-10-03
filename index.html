@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nightfall Calendar</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Night sky backdrop -->
+  <div class="sky" aria-hidden="true">
+    <div class="stars" id="stars"></div>
+    <svg class="clouds" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <filter id="fluff" x="-30%" y="-30%" width="160%" height="160%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="4" seed="7" result="noise"/>
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="110" xChannelSelector="R" yChannelSelector="G" result="d"/>
+          <feGaussianBlur in="d" stdDeviation="7"/>
+        </filter>
+        <filter id="haze" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="38"/>
+        </filter>
+        <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#171c25" stop-opacity="0"/>
+          <stop offset="1" stop-color="#171c25" stop-opacity="1"/>
+        </linearGradient>
+      </defs>
+
+      <!-- right cloud tower -->
+      <g filter="url(#haze)" opacity=".7">
+        <ellipse cx="1480" cy="420" rx="220" ry="320" fill="#6e74ad"/>
+      </g>
+      <g filter="url(#fluff)">
+        <circle cx="1560" cy="190" r="90"  fill="#8d90c6" opacity=".75"/>
+        <circle cx="1470" cy="300" r="120" fill="#9a9bd0" opacity=".8"/>
+        <circle cx="1560" cy="360" r="140" fill="#b9b6e2" opacity=".75"/>
+        <circle cx="1420" cy="430" r="110" fill="#d8b3a2" opacity=".55"/>
+        <circle cx="1500" cy="520" r="150" fill="#8f92c7" opacity=".8"/>
+        <circle cx="1380" cy="610" r="140" fill="#6e74a8" opacity=".85"/>
+        <circle cx="1560" cy="640" r="170" fill="#7c80b6" opacity=".8"/>
+        <circle cx="1450" cy="360" r="60"  fill="#efc3a1" opacity=".45"/>
+        <circle cx="1300" cy="700" r="120" fill="#5b6191" opacity=".8"/>
+        <circle cx="1230" cy="760" r="110" fill="#ccb0a8" opacity=".35"/>
+      </g>
+
+      <!-- left cloud -->
+      <g filter="url(#fluff)">
+        <circle cx="40"  cy="520" r="110" fill="#5e6289" opacity=".85"/>
+        <circle cx="150" cy="560" r="90"  fill="#8a7f94" opacity=".55"/>
+        <circle cx="260" cy="590" r="70"  fill="#6b6f99" opacity=".6"/>
+        <circle cx="90"  cy="470" r="60"  fill="#c49d92" opacity=".35"/>
+      </g>
+
+      <!-- bottom cloud bank -->
+      <g filter="url(#fluff)" opacity=".85">
+        <circle cx="200"  cy="900" r="170" fill="#3b4060"/>
+        <circle cx="520"  cy="860" r="150" fill="#4b4c6a"/>
+        <circle cx="650"  cy="800" r="90"  fill="#6f6577" opacity=".7"/>
+        <circle cx="820"  cy="880" r="170" fill="#45496a"/>
+        <circle cx="1050" cy="820" r="140" fill="#5a5875"/>
+        <circle cx="1000" cy="760" r="70"  fill="#a38a89" opacity=".45"/>
+        <circle cx="1250" cy="880" r="180" fill="#4a4e70"/>
+        <circle cx="1500" cy="850" r="190" fill="#575b80"/>
+      </g>
+
+      <rect x="0" y="720" width="1600" height="280" fill="url(#floor)"/>
+    </svg>
+    <svg class="sparkle s1" viewBox="0 0 40 40"><path d="M20 0 C21 15 25 19 40 20 C25 21 21 25 20 40 C19 25 15 21 0 20 C15 19 19 15 20 0Z" fill="#e9eeff"/></svg>
+    <svg class="sparkle s2" viewBox="0 0 40 40"><path d="M20 0 C21 15 25 19 40 20 C25 21 21 25 20 40 C19 25 15 21 0 20 C15 19 19 15 20 0Z" fill="#e9eeff"/></svg>
+    <div class="pixels" id="pixels"></div>
+  </div>
+
+  <div class="app">
+    <header class="topbar">
+      <div class="nav">
+        <button class="icon-btn" id="prevBtn" aria-label="Previous">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button class="btn ghost sm" id="todayBtn">Today</button>
+        <button class="icon-btn" id="nextBtn" aria-label="Next">
+          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <h1 id="rangeTitle"></h1>
+      </div>
+
+      <div class="top-right">
+        <div class="seg" role="tablist" aria-label="View">
+          <button role="tab" data-view="day">Day</button>
+          <button role="tab" data-view="week">Week</button>
+          <button role="tab" data-view="month">Month</button>
+        </div>
+        <button class="btn primary" id="newBtn">
+          <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New task</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="layout">
+
+      <main class="main card" id="view"></main>
+
+      <aside class="sidebar">
+        <!-- Mini calendar -->
+        <section class="card mini">
+          <div class="mini-head">
+            <h2 id="miniTitle"></h2>
+            <div class="mini-nav">
+              <button class="icon-btn xs" id="miniPrev" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <button class="icon-btn xs" id="miniNext" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </div>
+          </div>
+          <div class="mini-grid" id="miniGrid"></div>
+        </section>
+
+        <section class="card agenda" id="agenda" hidden></section>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Task editor -->
+  <dialog id="editor" class="sheet">
+    <form id="editorForm" autocomplete="off">
+      <div class="sheet-head">
+        <h2 id="editorTitle">New task</h2>
+        <button type="button" class="icon-btn" data-close aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <label class="field">
+        <span>Title</span>
+        <input id="fTitle" placeholder="What's happening?" maxlength="120" required>
+      </label>
+
+      <div class="row3">
+        <label class="field"><span id="fDateLabel">Date</span><input type="date" id="fDate" required></label>
+        <label class="field"><span>Start</span><input type="time" id="fStart" required></label>
+        <label class="field"><span>End</span><input type="time" id="fEnd" required></label>
+      </div>
+
+      <div class="field">
+        <span>Repeat</span>
+        <div class="select-wrap">
+          <select id="fRepeat" aria-label="Repeat">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </div>
+        <div class="rep-panel" id="fCustom" hidden>
+          <div class="rep-line">
+            <span>Every</span>
+            <input type="number" id="fInterval" min="1" max="99" value="1" inputmode="numeric" aria-label="Repeat every">
+            <div class="select-wrap">
+              <select id="fFreq" aria-label="Repeat unit">
+                <option value="daily">day</option>
+                <option value="weekly">week</option>
+                <option value="monthly">month</option>
+              </select>
+            </div>
+          </div>
+          <div class="day-pills" id="fDays" role="group" aria-label="Repeat on"></div>
+        </div>
+        <div class="rep-line" id="fEndsRow" hidden>
+          <span>Ends</span>
+          <div class="select-wrap">
+            <select id="fEnds" aria-label="Ends">
+              <option value="never">Never</option>
+              <option value="on">On date</option>
+            </select>
+          </div>
+          <input type="date" id="fUntil" aria-label="End date" hidden>
+        </div>
+      </div>
+
+      <div class="field">
+        <span>Category</span>
+        <div class="opt-grid" id="fCats"></div>
+      </div>
+
+      <div class="field">
+        <span>Checklist <em class="sub-note" id="fSubsNote" hidden></em></span>
+        <ul class="checklist" id="fSubs"></ul>
+        <div class="add-row">
+          <input id="fSubInput" placeholder="Add a step…" maxlength="200">
+          <button type="button" class="icon-btn" id="fSubAdd" aria-label="Add step"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+      </div>
+
+      <label class="field">
+        <span>Notes</span>
+        <textarea id="fNotes" rows="2" maxlength="2000" placeholder="Optional"></textarea>
+      </label>
+
+      <p class="tz-note"><span class="dot-live"></span>Times in <strong id="fTz"></strong></p>
+
+      <div class="sheet-foot">
+        <button type="button" class="btn danger" id="fDeleteOne" hidden>Delete this one</button>
+        <button type="button" class="btn danger" id="fDelete">Delete</button>
+        <button type="submit" class="btn primary wide">Save <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
