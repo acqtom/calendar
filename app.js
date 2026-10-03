@@ -96,7 +96,14 @@
   const dateIn = (ms, tz) => { const p = parts(ms, tz); return ymd(p.y, p.m, p.d); };
   const dateOf = (ms) => dateIn(ms, state.tz);
   const minutesOf = (ms) => { const p = parts(ms, state.tz); return p.h * 60 + p.mi; };
-  const fmtTime = (ms) => { const p = parts(ms, state.tz); return `${pad(p.h)}:${pad(p.mi)}`; };
+  // 12-hour clock: "9:30 AM"; compact drops ":00" and the space ("9am", "1:30pm")
+  const ampm = (h) => (h < 12 ? 'AM' : 'PM');
+  const h12 = (h) => h % 12 || 12;
+  const fmtTime = (ms, compact = false) => {
+    const p = parts(ms, state.tz);
+    if (compact) return `${h12(p.h)}${p.mi ? ':' + pad(p.mi) : ''}${ampm(p.h).toLowerCase()}`;
+    return `${h12(p.h)}:${pad(p.mi)} ${ampm(p.h)}`;
+  };
   const today = () => dateOf(Date.now());
   const dayBounds = (s) => [zonedToUtc(s, 0, state.tz), zonedToUtc(addDays(s, 1), 0, state.tz)];
 
@@ -337,7 +344,7 @@
     head += '</div>';
 
     let gutter = '<div class="tg-gutter">';
-    for (let h = 0; h < 24; h++) gutter += `<div class="hour-label"><span>${h ? pad(h) + ':00' : ''}</span></div>`;
+    for (let h = 0; h < 24; h++) gutter += `<div class="hour-label"><span>${h ? `${h12(h)} ${ampm(h)}` : ''}</span></div>`;
     gutter += '</div>';
 
     let cols = '';
@@ -351,7 +358,11 @@
   }
 
   const evAttrs = (o) => `data-ev="${o.e.id}" data-occ="${o.key}"`;
-  const timeRange = (o) => `${fmtTime(o.start)} – ${fmtTime(o.end)}`;
+  // "9:00 – 10:30 AM", or "11:00 AM – 1:00 PM" when it crosses noon/midnight
+  const timeRange = (o) => {
+    const a = fmtTime(o.start), b = fmtTime(o.end);
+    return a.slice(-2) === b.slice(-2) ? `${a.slice(0, -3)} – ${b}` : `${a} – ${b}`;
+  };
 
   function eventBlock(it) {
     const o = it.o, e = o.e;
@@ -412,7 +423,7 @@
       if (d === state.selected) cls.push('is-selected');
       html += `<div class="${cls.join(' ')}" data-cell="${d}">
         <div class="mc-top"><button class="mc-num" data-goday="${d}" aria-label="Open ${fmt(d, { day: 'numeric', month: 'long' })}">${dayNum(d)}</button></div>
-        ${evs.slice(0, 3).map((o) => `<button class="chip" ${evAttrs(o)} style="${catStyle(o.e)}"><span class="dot"></span><span class="chip-time">${o.start < dayStart ? '…' : fmtTime(o.start)}</span><span class="chip-title">${esc(o.e.title || '(untitled)')}</span></button>`).join('')}
+        ${evs.slice(0, 3).map((o) => `<button class="chip" ${evAttrs(o)} style="${catStyle(o.e)}"><span class="dot"></span><span class="chip-time">${o.start < dayStart ? '…' : fmtTime(o.start, true)}</span><span class="chip-title">${esc(o.e.title || '(untitled)')}</span></button>`).join('')}
         ${evs.length > 3 ? `<button class="more" data-goday="${d}">+${evs.length - 3} more</button>` : ''}
       </div>`;
     }
