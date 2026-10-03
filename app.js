@@ -290,8 +290,9 @@
       if (d.slice(0, 7) !== m) cls.push('is-other');
       if (d === t) cls.push('is-today');
       if (d === state.selected) cls.push('is-selected');
-      if (eventsOn(d).length) cls.push('has-ev');
-      html += `<button class="${cls.join(' ')}" data-date="${d}" aria-label="${fmt(d, { weekday: 'long', day: 'numeric', month: 'long' })}">${dayNum(d)}</button>`;
+      const cats = [...new Set(eventsOn(d).map((o) => catOf(o.e).color))].slice(0, 3);
+      const dots = cats.length ? `<span class="mini-dots">${cats.map((c) => `<i style="--c:${c}"></i>`).join('')}</span>` : '';
+      html += `<button class="${cls.join(' ')}" data-date="${d}" aria-label="${fmt(d, { weekday: 'long', day: 'numeric', month: 'long' })}">${dayNum(d)}${dots}</button>`;
     }
     $('#miniGrid').innerHTML = html;
   }
@@ -395,7 +396,7 @@
         <button class="opt-row" ${evAttrs(o)}>
           <span class="icon-tile">${catOf(e).icon}</span>
           <span class="opt-text"><span class="opt-title">${esc(e.title || '(untitled)')}</span><span class="opt-meta">${meta.join(' · ')}${e.repeat ? ICONS.repeat : ''}</span></span>
-          <span class="ring${subs.length && done === subs.length ? ' full' : ''}" style="--p:${pct}"></span>
+          <span class="ring${subs.length && done === subs.length ? ' full' : ''}" style="${catStyle(e)};--p:${pct}"></span>
         </button>
         <div class="opt-body">
           ${subs.length ? `<ul class="checklist">${subs.map((s) => checkItem(s, `sub:${e.id}:${s.id}:${o.key}`, isDone(o, s))).join('')}</ul>` : ''}
