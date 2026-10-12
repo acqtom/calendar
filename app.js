@@ -25,14 +25,14 @@
   };
 
   const CATS = {
-    adriel: { label: 'Adriel', icon: ICONS.person, color: '#f58fcf' },
-    alex: { label: 'Alex', icon: ICONS.person, color: '#56cfe1' },
-    call: { label: 'Call', icon: ICONS.phone, color: '#5fd3a3' },
-    morning: { label: 'Morning routine', icon: ICONS.sunrise, color: '#ffd36e' },
-    wind: { label: 'Wind down', icon: ICONS.moon, color: '#b69dff' },
-    deep: { label: 'Deep work', icon: ICONS.bolt, color: '#5f97ff' },
-    walk: { label: 'Walk', icon: ICONS.feet, color: '#a6dd6e' },
-    eat: { label: 'Eat', icon: ICONS.utensils, color: '#ff9a6b' },
+    adriel: { label: 'Adriel', icon: ICONS.person, color: '#df4a9e' },
+    alex: { label: 'Alex', icon: ICONS.person, color: '#0b9fbf' },
+    call: { label: 'Call', icon: ICONS.phone, color: '#14a05a' },
+    morning: { label: 'Morning routine', icon: ICONS.sunrise, color: '#e3a008' },
+    wind: { label: 'Wind down', icon: ICONS.moon, color: '#7a5af0' },
+    deep: { label: 'Deep work', icon: ICONS.bolt, color: '#1048e0' },
+    walk: { label: 'Walk', icon: ICONS.feet, color: '#5c9c1c' },
+    eat: { label: 'Eat', icon: ICONS.utensils, color: '#ee6430' },
   };
   const DEFAULT_CAT = 'deep';
   const catOf = (e) => CATS[e.cat] || CATS[DEFAULT_CAT];
@@ -269,7 +269,9 @@
     } else {
       title = fmt(c, { month: 'long', year: 'numeric' });
     }
-    $('#rangeTitle').textContent = title;
+    // last word in brand blue, like the headline style
+    const cut = title.lastIndexOf(' ');
+    $('#rangeTitle').innerHTML = `${esc(title.slice(0, cut + 1))}<span class="hl">${esc(title.slice(cut + 1))}</span>`;
     document.querySelectorAll('.seg button').forEach((b) => {
       const on = b.dataset.view === state.view;
       b.classList.toggle('active', on);
@@ -355,7 +357,7 @@
       if (d === t) cols += `<div class="now-line" style="top:${(minutesOf(now) / 60) * HOUR}px"></div>`;
       cols += '</div>';
     }
-    return `<div class="tg-scroll tg-${kind}"><div class="tg-inner">${head}<div class="tg-body" style="--cols:${days.length}">${gutter}${cols}</div></div></div>`;
+    return `<div class="tg-scroll tg-view-${kind}"><div class="tg-inner">${head}<div class="tg-body" style="--cols:${days.length}">${gutter}${cols}</div></div></div>`;
   }
 
   const evAttrs = (o) => `data-ev="${o.e.id}" data-occ="${o.key}"`;
@@ -775,31 +777,11 @@
     else if (ev.key === 'ArrowRight') step(1);
   });
 
-  // ---------- sky ----------
-  function paintSky() {
-    const rnd = (a, b) => a + Math.random() * (b - a);
-    let stars = '';
-    for (let i = 0; i < 70; i++) {
-      const s = rnd(1.5, 3.4);
-      stars += `<i class="star" style="left:${rnd(0, 100)}%;top:${rnd(0, 72)}%;width:${s}px;height:${s}px;--o:${rnd(0.35, 0.95).toFixed(2)};--tw:${rnd(3, 7).toFixed(1)}s;--delay:-${rnd(0, 7).toFixed(1)}s"></i>`;
-    }
-    $('#stars').innerHTML = stars;
-    let px = '';
-    const zones = [[0, 22, 58, 82], [62, 100, 42, 70], [30, 70, 66, 80]];
-    for (let i = 0; i < 70; i++) {
-      const [x1, x2, y1, y2] = zones[i % zones.length];
-      const s = Math.round(rnd(3, 7));
-      px += `<i class="px" style="left:${rnd(x1, x2)}%;top:${rnd(y1, y2)}%;width:${s}px;height:${s}px;opacity:${rnd(0.15, 0.55).toFixed(2)}"></i>`;
-    }
-    $('#pixels').innerHTML = px;
-  }
-
   // ---------- boot ----------
   document.documentElement.style.setProperty('--hour', `${HOUR}px`);
   if (!load()) seed();
   state.cursor = state.selected = today();
   state.mini = state.cursor.slice(0, 8) + '01';
-  paintSky();
   render();
   setInterval(tick, 1000);
 })();

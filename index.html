@@ -6,72 +6,16 @@
   <title>kill calendar</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Night sky backdrop -->
-  <div class="sky" aria-hidden="true">
-    <div class="stars" id="stars"></div>
-    <svg class="clouds" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice">
-      <defs>
-        <filter id="fluff" x="-30%" y="-30%" width="160%" height="160%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.011" numOctaves="4" seed="7" result="noise"/>
-          <feDisplacementMap in="SourceGraphic" in2="noise" scale="110" xChannelSelector="R" yChannelSelector="G" result="d"/>
-          <feGaussianBlur in="d" stdDeviation="7"/>
-        </filter>
-        <filter id="haze" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="38"/>
-        </filter>
-        <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#171c25" stop-opacity="0"/>
-          <stop offset="1" stop-color="#171c25" stop-opacity="1"/>
-        </linearGradient>
-      </defs>
-
-      <!-- right cloud tower -->
-      <g filter="url(#haze)" opacity=".7">
-        <ellipse cx="1480" cy="420" rx="220" ry="320" fill="#6e74ad"/>
-      </g>
-      <g filter="url(#fluff)">
-        <circle cx="1560" cy="190" r="90"  fill="#8d90c6" opacity=".75"/>
-        <circle cx="1470" cy="300" r="120" fill="#9a9bd0" opacity=".8"/>
-        <circle cx="1560" cy="360" r="140" fill="#b9b6e2" opacity=".75"/>
-        <circle cx="1420" cy="430" r="110" fill="#d8b3a2" opacity=".55"/>
-        <circle cx="1500" cy="520" r="150" fill="#8f92c7" opacity=".8"/>
-        <circle cx="1380" cy="610" r="140" fill="#6e74a8" opacity=".85"/>
-        <circle cx="1560" cy="640" r="170" fill="#7c80b6" opacity=".8"/>
-        <circle cx="1450" cy="360" r="60"  fill="#efc3a1" opacity=".45"/>
-        <circle cx="1300" cy="700" r="120" fill="#5b6191" opacity=".8"/>
-        <circle cx="1230" cy="760" r="110" fill="#ccb0a8" opacity=".35"/>
-      </g>
-
-      <!-- left cloud -->
-      <g filter="url(#fluff)">
-        <circle cx="40"  cy="520" r="110" fill="#5e6289" opacity=".85"/>
-        <circle cx="150" cy="560" r="90"  fill="#8a7f94" opacity=".55"/>
-        <circle cx="260" cy="590" r="70"  fill="#6b6f99" opacity=".6"/>
-        <circle cx="90"  cy="470" r="60"  fill="#c49d92" opacity=".35"/>
-      </g>
-
-      <!-- bottom cloud bank -->
-      <g filter="url(#fluff)" opacity=".85">
-        <circle cx="200"  cy="900" r="170" fill="#3b4060"/>
-        <circle cx="520"  cy="860" r="150" fill="#4b4c6a"/>
-        <circle cx="650"  cy="800" r="90"  fill="#6f6577" opacity=".7"/>
-        <circle cx="820"  cy="880" r="170" fill="#45496a"/>
-        <circle cx="1050" cy="820" r="140" fill="#5a5875"/>
-        <circle cx="1000" cy="760" r="70"  fill="#a38a89" opacity=".45"/>
-        <circle cx="1250" cy="880" r="180" fill="#4a4e70"/>
-        <circle cx="1500" cy="850" r="190" fill="#575b80"/>
-      </g>
-
-      <rect x="0" y="720" width="1600" height="280" fill="url(#floor)"/>
-    </svg>
-    <svg class="sparkle s1" viewBox="0 0 40 40"><path d="M20 0 C21 15 25 19 40 20 C25 21 21 25 20 40 C19 25 15 21 0 20 C15 19 19 15 20 0Z" fill="#e9eeff"/></svg>
-    <svg class="sparkle s2" viewBox="0 0 40 40"><path d="M20 0 C21 15 25 19 40 20 C25 21 21 25 20 40 C19 25 15 21 0 20 C15 19 19 15 20 0Z" fill="#e9eeff"/></svg>
-    <div class="pixels" id="pixels"></div>
-  </div>
+  <header class="brandbar">
+    <a class="logo" href="https://paidcoaching.com" target="_blank" rel="noopener" aria-label="Paidcoaching.com">
+      <img src="logo.png" alt="" width="36" height="35">
+      <span>Paidcoaching.com</span>
+    </a>
+  </header>
 
   <div class="app">
     <header class="topbar">
