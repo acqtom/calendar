@@ -319,6 +319,8 @@
     } else {
       view.innerHTML = renderTimeGrid([state.cursor], 'day');
     }
+    // the side column (month calendar + day's tasks) only appears in day view
+    $('.layout').classList.toggle('no-side', state.view !== 'day');
     agenda.hidden = state.view !== 'day';
     agenda.innerHTML = state.view === 'day' ? renderAgenda(state.cursor) : '';
 

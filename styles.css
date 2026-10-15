@@ -160,6 +160,8 @@ h1, h2, h3 { margin: 0; font-family: var(--display); letter-spacing: -0.02em; }
   scrollbar-width: none;
 }
 .sidebar::-webkit-scrollbar { display: none; }
+.layout.no-side { grid-template-columns: minmax(0, 1fr); }
+.layout.no-side .sidebar { display: none; }
 .sidebar .card { padding: 16px; }
 .main { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 
