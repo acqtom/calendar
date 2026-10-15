@@ -109,7 +109,7 @@
 
   // ---------- state ----------
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [] };
+  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {} };
 
   function load() {
     try {
@@ -117,13 +117,14 @@
       if (!saved) return false;
       if (['day', 'week', 'month'].includes(saved.view)) state.view = saved.view;
       state.events = Array.isArray(saved.events) ? saved.events : [];
+      state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
       for (const e of state.events) if (!CATS[e.cat]) e.cat = DEFAULT_CAT;
       return true;
     } catch { return false; }
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, events: state.events }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, events: state.events, todos: state.todos }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -135,6 +136,7 @@
       end: zonedToUtc(addDays(t, off), e, state.tz),
       subtasks: steps.map((text) => ({ id: uid(), text, done: false })),
     });
+    state.todos = { [t]: [{ id: uid(), text: 'Reply to emails', done: false }, { id: uid(), text: 'Post content', done: false }] };
     state.events = [
       mk(0, 7 * 60, 7 * 60 + 45, 'Morning routine', 'morning', ['Water', 'Stretch', 'Journal'], { freq: 'daily', interval: 1 }),
       mk(-dow(t), 9 * 60 + 30, 12 * 60, 'Deep work block', 'deep', ['Pick one thing', 'Phone away'], { freq: 'weekly', interval: 1, days: [0, 1, 2, 3, 4] }),
@@ -334,6 +336,16 @@
     }
   }
 
+  // untimed tasks for one day: checklist plus an inline "add" field
+  function dayTasks(d) {
+    const list = state.todos[d] || [];
+    return `<ul class="todo-list">${list.map((t) => `<li class="todo${t.done ? ' done' : ''}">
+        <label class="tcheck"><input type="checkbox" data-todo="${d}:${t.id}"${t.done ? ' checked' : ''}><span class="box sm"></span><span class="txt" title="${esc(t.text)}">${esc(t.text)}</span></label>
+        <button type="button" class="del" data-todo-del="${d}:${t.id}" aria-label="Delete task">${ICONS.x}</button>
+      </li>`).join('')}</ul>
+      <form class="todo-add" data-todo-add="${d}" autocomplete="off"><input placeholder="+ Add task" maxlength="200" aria-label="Add a task for ${fmt(d, { weekday: 'long', day: 'numeric', month: 'long' })}"></form>`;
+  }
+
   function renderTimeGrid(days, kind) {
     const t = today();
     const now = Date.now();
@@ -344,6 +356,8 @@
       if (d === state.selected) cls.push('is-selected');
       head += `<button class="${cls.join(' ')}" data-goday="${d}"><span class="dow">${fmt(d, { weekday: 'short' })}</span><span class="num">${dayNum(d)}</span></button>`;
     }
+    head += '<div class="allday-label">Tasks</div>';
+    for (const d of days) head += `<div class="allday">${dayTasks(d)}</div>`;
     head += '</div>';
 
     let gutter = '<div class="tg-gutter">';
@@ -375,12 +389,10 @@
     const { subs, done } = progress(o);
     const cls = ['ev'];
     if (h < 40) cls.push('ev-short');
-    else if (h < 60) cls.push('ev-compact');
     if (subs.length && done === subs.length) cls.push('ev-done');
-    return `<button class="${cls.join(' ')}" ${evAttrs(o)} style="${catStyle(e)};top:${top}px;height:${h}px;left:calc(${it.col * w}% + 3px);width:calc(${w}% - 6px)">
-      <span class="ev-title">${esc(e.title || '(untitled)')}</span>
-      <span class="ev-time">${timeRange(o)}${e.repeat ? ICONS.repeat : ''}</span>
-      ${subs.length ? `<span class="ev-subs">${ICONS.check}${done}/${subs.length}</span>` : ''}
+    const title = e.title || '(untitled)';
+    return `<button class="${cls.join(' ')}" ${evAttrs(o)} title="${esc(`${title} · ${timeRange(o)}`)}" style="${catStyle(e)};top:${top}px;height:${h}px;left:calc(${it.col * w}% + 3px);width:calc(${w}% - 6px)">
+      <span class="ev-title">${esc(title)}</span>
     </button>`;
   }
 
@@ -426,7 +438,8 @@
       if (d === state.selected) cls.push('is-selected');
       html += `<div class="${cls.join(' ')}" data-cell="${d}">
         <div class="mc-top"><button class="mc-num" data-goday="${d}" aria-label="Open ${fmt(d, { day: 'numeric', month: 'long' })}">${dayNum(d)}</button></div>
-        ${evs.slice(0, 3).map((o) => `<button class="chip" ${evAttrs(o)} style="${catStyle(o.e)}"><span class="dot"></span><span class="chip-time">${o.start < dayStart ? '…' : fmtTime(o.start, true)}</span><span class="chip-title">${esc(o.e.title || '(untitled)')}</span></button>`).join('')}
+        <div class="mc-tasks">${dayTasks(d)}</div>
+        ${evs.slice(0, 3).map((o) => `<button class="chip" ${evAttrs(o)} title="${esc(`${o.e.title || '(untitled)'} · ${timeRange(o)}`)}" style="${catStyle(o.e)}"><span class="dot"></span><span class="chip-title">${esc(o.e.title || '(untitled)')}</span></button>`).join('')}
         ${evs.length > 3 ? `<button class="more" data-goday="${d}">+${evs.length - 3} more</button>` : ''}
       </div>`;
     }
@@ -700,7 +713,16 @@
 
   // ---------- task checklists ----------
   // keys look like sub:<eventId>:<stepId>:<occurrence date or empty>
+  const findTodo = (key) => {
+    const [d, id] = key.split(':');
+    return { d, list: state.todos[d] || [], item: (state.todos[d] || []).find((t) => t.id === id) };
+  };
   function onToggle(ev) {
+    if (ev.target.dataset.todo) {
+      const { item } = findTodo(ev.target.dataset.todo);
+      if (item) { item.done = ev.target.checked; render(); }
+      return;
+    }
     const key = ev.target.dataset.toggle;
     if (!key || !key.startsWith('sub:')) return;
     const [, id, subId, occ = ''] = key.split(':');
@@ -726,6 +748,17 @@
     el.addEventListener('click', onViewClick);
   }
   function onAddStep(ev) {
+    const addTodo = ev.target.closest('[data-todo-add]');
+    if (addTodo) {
+      ev.preventDefault();
+      const d = addTodo.dataset.todoAdd;
+      const text = addTodo.querySelector('input').value.trim();
+      if (!text) return;
+      (state.todos[d] ||= []).push({ id: uid(), text, done: false });
+      render();
+      document.querySelector(`[data-todo-add="${d}"] input`)?.focus();
+      return;
+    }
     const form = ev.target.closest('[data-addsub]');
     if (!form) return;
     ev.preventDefault();
@@ -737,6 +770,18 @@
     document.querySelector(`[data-addsub="${e.id}"] input`)?.focus();
   }
   function onViewClick(ev) {
+    const del = ev.target.closest('[data-todo-del]');
+    if (del) {
+      const { d, list, item } = findTodo(del.dataset.todoDel);
+      if (item) {
+        const rest = list.filter((t) => t !== item);
+        if (rest.length) state.todos[d] = rest; else delete state.todos[d];
+        render();
+      }
+      return;
+    }
+    // clicks inside a day's task list never open the editor or change day
+    if (ev.target.closest('.todo-list, .todo-add')) return;
     if (onRemove(ev)) return;
     if (ev.target.closest('label.check, form')) return;
     const evBtn = ev.target.closest('[data-ev]');
@@ -760,7 +805,7 @@
   }
   view.addEventListener('dblclick', (ev) => {
     const cell = ev.target.closest('[data-cell]');
-    if (cell && !ev.target.closest('[data-ev],[data-goday]')) openEditor({ date: cell.dataset.cell, startMin: 9 * 60 });
+    if (cell && !ev.target.closest('[data-ev],[data-goday],.mc-tasks')) openEditor({ date: cell.dataset.cell, startMin: 9 * 60 });
   });
 
   // keyboard shortcuts: d / w / m, t, n, ← →

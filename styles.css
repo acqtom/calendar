@@ -313,16 +313,58 @@ select {
   cursor: pointer;
 }
 .ev:hover { background: color-mix(in srgb, var(--c) 24%, #fff); z-index: 3; box-shadow: 0 6px 16px rgba(40, 36, 20, .12); }
-.ev-title { font-size: 13px; font-weight: 700; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ev-time { font-size: 11.5px; color: color-mix(in srgb, var(--c) 72%, #000); font-weight: 600; white-space: nowrap; }
-.ev-subs { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: color-mix(in srgb, var(--c) 72%, #000); margin-top: 2px; }
-.ev-subs svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 3; }
-.ev > span { flex: none; }
-.ev-short { flex-direction: row; align-items: center; gap: 6px; padding-top: 2px; padding-bottom: 2px; }
-.ev-short .ev-title { flex: 0 1 auto; min-width: 0; }
-.ev-short .ev-time { flex: 0 100 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.ev-short .ev-subs, .ev-compact .ev-subs { display: none; }
+.ev-title {
+  font-size: 13px; font-weight: 700; line-height: 1.25; max-width: 100%; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow-wrap: anywhere;
+}
+.ev-short { justify-content: center; padding-top: 1px; padding-bottom: 1px; }
+.ev-short .ev-title { -webkit-line-clamp: 1; }
 .ev-done .ev-title { text-decoration: line-through; opacity: .6; }
+
+/* ---------- Untimed day tasks ---------- */
+.allday-label {
+  border-top: 1px solid var(--grid);
+  padding: 9px 4px 0; text-align: center;
+  font-size: 10.5px; font-weight: 700; color: var(--dim); text-transform: uppercase; letter-spacing: .06em;
+}
+.allday {
+  border-top: 1px solid var(--grid); border-left: 1px solid var(--grid);
+  background: var(--surface);
+  padding: 5px; min-width: 0;
+  max-height: 150px; overflow-y: auto; scrollbar-width: thin;
+}
+.todo-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.todo {
+  display: flex; align-items: center; gap: 2px; min-width: 0;
+  padding: 2px 2px 2px 6px; border-radius: 6px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+.todo:hover { border-color: var(--line-strong); }
+.tcheck { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; padding: 2px 0; cursor: pointer; font-size: 12.5px; font-weight: 500; }
+.tcheck input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.tcheck .txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcheck input:checked + .box { background: var(--accent); border-color: var(--accent); }
+.tcheck input:checked + .box::after { transform: rotate(45deg) scale(1); }
+.tcheck input:focus-visible + .box { outline: 2px solid var(--accent); outline-offset: 2px; }
+.todo.done .txt { color: var(--dim); text-decoration: line-through; }
+.box.sm { width: 15px; height: 15px; border-width: 1.5px; }
+.box.sm::after { width: 4px; height: 7px; margin-top: -1px; }
+.todo .del { width: 20px; height: 20px; }
+.todo .del svg { width: 12px; height: 12px; }
+.todo:hover .del, .todo .del:focus-visible { opacity: 1; }
+.todo-add { margin-top: 3px; }
+.todo-add input {
+  height: 26px; padding: 2px 6px;
+  font-size: 12px; font-weight: 600;
+  background: transparent; border: 1px dashed transparent; border-radius: 6px;
+}
+.todo-add input::placeholder { color: var(--accent); opacity: .75; }
+.todo-add input:hover { border-color: var(--line-strong); }
+.todo-add input:focus { background: var(--surface); border-style: solid; }
+.mc-tasks { min-width: 0; }
+.mc-tasks .todo-add { opacity: 0; transition: opacity .15s; }
+.mc:hover .mc-tasks .todo-add, .mc-tasks .todo-add:focus-within { opacity: 1; }
+@media (hover: none) { .mc-tasks .todo-add { opacity: 1; } }
 
 /* ---------- Day panel ---------- */
 .sidebar .agenda { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
@@ -373,10 +415,10 @@ select {
 .month { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .month-head { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); background: var(--head); border-bottom: 1.5px solid var(--ink); border-radius: var(--radius) var(--radius) 0 0; }
 .month-head div { padding: 12px 10px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
-.month-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(96px, 1fr)); overflow-y: auto; }
+.month-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(min-content, 1fr)); overflow-y: auto; }
 .mc {
   border-right: 1px solid var(--grid); border-bottom: 1px solid var(--grid);
-  padding: 6px; min-width: 0;
+  padding: 6px; min-width: 0; min-height: 96px;
   display: flex; flex-direction: column; gap: 3px;
   cursor: pointer; transition: background .15s;
 }
@@ -406,7 +448,6 @@ select {
 }
 .chip:hover { background: color-mix(in srgb, var(--c) 24%, #fff); }
 .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
-.chip-time { color: color-mix(in srgb, var(--c) 72%, #000); font-weight: 600; font-variant-numeric: tabular-nums; flex: none; }
 .chip-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .more { border: 0; background: none; color: var(--accent); font-size: 12px; font-weight: 700; text-align: left; padding: 2px 6px; }
 .more:hover { text-decoration: underline; }
@@ -469,7 +510,7 @@ select {
 .day-pill:hover { color: var(--text); border-color: var(--ink); }
 .day-pill[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
 .sub-note { font-style: normal; font-weight: 500; color: var(--dim); margin-left: 6px; }
-.ev-time svg, .opt-meta svg {
+.opt-meta svg {
   display: inline-block; width: 11px; height: 11px; margin-left: 5px; vertical-align: -1px;
 }
 .tz-note { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); justify-content: center; }
@@ -503,7 +544,7 @@ select {
   .row3 .field:first-child { grid-column: 1 / -1; }
   .mc { padding: 4px 3px; }
   .chip { padding: 2px 4px; }
-  .chip-time, .chip .dot { display: none; }
+  .chip .dot { display: none; }
   .month-head div { padding: 10px 4px; text-align: center; font-size: 11px; }
   .sheet form { padding: 18px; }
 }
