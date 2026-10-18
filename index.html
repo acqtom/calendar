@@ -144,6 +144,15 @@
       <div class="field">
         <span>Category</span>
         <div class="opt-grid" id="fCats"></div>
+        <div class="cat-new" id="catNew" hidden>
+          <input id="catName" placeholder="Category name, e.g. Gym" maxlength="30" aria-label="New category name">
+          <div class="cat-pick-row"><span>Colour</span><div class="swatches" id="catColors" role="radiogroup" aria-label="Colour"></div></div>
+          <div class="cat-pick-row"><span>Icon</span><div class="icon-picks" id="catIcons" role="radiogroup" aria-label="Icon"></div></div>
+          <div class="cat-new-foot">
+            <button type="button" class="btn sm" id="catCancel">Cancel</button>
+            <button type="button" class="btn sm primary" id="catSave">Add category</button>
+          </div>
+        </div>
       </div>
 
       <div class="field">

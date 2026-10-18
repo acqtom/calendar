@@ -18,10 +18,17 @@
     moon: svgFill('<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>'),
     bolt: svgFill('<path d="M13.5 2 4.5 13.5h6.5L10 22l9.5-12H13z"/>'),
     feet: svgFill('<ellipse cx="8" cy="7.5" rx="3" ry="4.5"/><rect x="6" y="13.5" width="4" height="3.5" rx="1.75"/><ellipse cx="16" cy="11" rx="3" ry="4.5"/><rect x="14" y="17" width="4" height="3.5" rx="1.75"/>'),
+    star: svgFill('<path d="M12 2.8l2.8 5.8 6.4.9-4.6 4.5 1.1 6.3L12 17.3l-5.7 3 1.1-6.3L2.8 9.5l6.4-.9z"/>'),
+    heart: svgFill('<path d="M12 21s-7.5-4.6-9.5-9.3C1.2 8.4 3.3 5 6.7 5c2 0 3.5 1.1 5.3 3 1.8-1.9 3.3-3 5.3-3 3.4 0 5.5 3.4 4.2 6.7C19.5 16.4 12 21 12 21z"/>'),
+    tag: svgLine('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>'),
+    briefcase: svgLine('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M3 13h18"/>'),
+    book: svgLine('<path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/>'),
+    dumbbell: svgLine('<path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12"/>'),
     utensils: svgLine('<path d="M6.5 3v18M4 3v5.5a2.5 2.5 0 0 0 5 0V3M18 21V3c-2.4 1.3-3.8 3.9-3.8 7.5V14H18"/>'),
     repeat: svgLine('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>'),
     check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    plus: svgLine('<path d="M12 5v14M5 12h14"/>'),
     pencil: svgLine('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
   };
 
@@ -36,7 +43,14 @@
     eat: { label: 'Eat', icon: ICONS.utensils, color: '#ee6430' },
   };
   const DEFAULT_CAT = 'deep';
-  const catOf = (e) => CATS[e.cat] || CATS[DEFAULT_CAT];
+  // built-in categories plus any the user adds (state.customCats: [{ id, label, color, icon }])
+  const customCat = (id) => {
+    const c = state.customCats.find((x) => x.id === id);
+    return c && { label: c.label, color: c.color, icon: ICONS[c.icon] || ICONS.tag };
+  };
+  const catById = (id) => CATS[id] || customCat(id);
+  const allCats = () => [...Object.entries(CATS), ...state.customCats.map((c) => [c.id, customCat(c.id)])];
+  const catOf = (e) => catById(e.cat) || CATS[DEFAULT_CAT];
   const catStyle = (e) => `--c:${catOf(e).color}`;
 
   // ---------- timezone maths ----------
@@ -110,7 +124,7 @@
 
   // ---------- state ----------
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'], clockNames: {} };
+  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'], clockNames: {}, customCats: [] };
 
   function load() {
     try {
@@ -122,13 +136,14 @@
       state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
       if (Array.isArray(saved.clocks)) state.clocks = saved.clocks.filter(isValidTz);
       if (saved.clockNames && typeof saved.clockNames === 'object') state.clockNames = saved.clockNames;
-      for (const e of state.events) if (!CATS[e.cat]) e.cat = DEFAULT_CAT;
+      if (Array.isArray(saved.customCats)) state.customCats = saved.customCats.filter((c) => c && c.id && c.label);
+      for (const e of state.events) if (!catById(e.cat)) e.cat = DEFAULT_CAT;
       return true;
     } catch { return false; }
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks, clockNames: state.clockNames }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks, clockNames: state.clockNames, customCats: state.customCats }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -715,13 +730,63 @@
   let draftOcc = '';     // occurrence (date key) it was opened from, for repeating tasks
   let draftChecks = new Set();
 
-  $('#fCats').innerHTML = Object.entries(CATS).map(([k, c]) => `
-    <label class="opt" style="--c:${c.color}">
-      <input type="radio" name="cat" value="${k}">
-      <span class="icon-tile">${c.icon}</span>
-      <span class="label">${c.label}</span>
-      <span class="radio"></span>
-    </label>`).join('');
+  function renderCatOptions(selected) {
+    $('#fCats').innerHTML = allCats().map(([k, c]) => `
+      <label class="opt" style="--c:${c.color}">
+        <input type="radio" name="cat" value="${esc(k)}"${k === selected ? ' checked' : ''}>
+        <span class="icon-tile">${c.icon}</span>
+        <span class="label">${esc(c.label)}</span>
+        <span class="radio"></span>
+      </label>`).join('')
+      + `<button type="button" class="opt opt-add" id="catAddBtn"><span class="icon-tile">${ICONS.plus}</span><span class="label">New category</span></button>`;
+    if (!dlg.querySelector('input[name="cat"]:checked')) dlg.querySelector(`input[name="cat"][value="${DEFAULT_CAT}"]`).checked = true;
+  }
+
+  // --- new category form ---
+  const CAT_COLORS = ['#1048e0', '#0b9fbf', '#14a05a', '#5c9c1c', '#e3a008', '#ee6430', '#d23b3b', '#df4a9e', '#7a5af0', '#55554f'];
+  const CAT_ICONS = ['tag', 'star', 'heart', 'briefcase', 'book', 'dumbbell', 'person', 'phone', 'sunrise', 'moon', 'bolt', 'feet', 'utensils'];
+  let newCat = { color: CAT_COLORS[0], icon: 'tag' };
+  function renderCatPickers() {
+    $('#catColors').innerHTML = CAT_COLORS.map((c) => `<button type="button" class="swatch" role="radio" aria-checked="${c === newCat.color}" aria-label="Colour ${c}" data-color="${c}" style="--c:${c}"></button>`).join('');
+    $('#catIcons').innerHTML = CAT_ICONS.map((i) => `<button type="button" class="icon-pick" role="radio" aria-checked="${i === newCat.icon}" aria-label="${i}" data-icon="${i}" style="--c:${newCat.color}">${ICONS[i]}</button>`).join('');
+  }
+  function openCatForm() {
+    newCat = { color: CAT_COLORS[(state.customCats.length + 4) % CAT_COLORS.length], icon: 'tag' };
+    $('#catName').value = '';
+    renderCatPickers();
+    $('#catNew').hidden = false;
+    $('#catAddBtn').hidden = true;
+    $('#catName').focus();
+  }
+  function closeCatForm() {
+    $('#catNew').hidden = true;
+    const b = $('#catAddBtn');
+    if (b) b.hidden = false;
+  }
+  function saveCat() {
+    const label = $('#catName').value.trim();
+    if (!label) { $('#catName').focus(); return; }
+    const id = `c_${uid()}`;
+    state.customCats.push({ id, label, color: newCat.color, icon: newCat.icon });
+    save();
+    renderCatOptions(id);
+    closeCatForm();
+  }
+  $('#fCats').addEventListener('click', (ev) => { if (ev.target.closest('#catAddBtn')) openCatForm(); });
+  $('#catColors').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-color]');
+    if (b) { newCat.color = b.dataset.color; renderCatPickers(); }
+  });
+  $('#catIcons').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-icon]');
+    if (b) { newCat.icon = b.dataset.icon; renderCatPickers(); }
+  });
+  $('#catSave').addEventListener('click', saveCat);
+  $('#catCancel').addEventListener('click', closeCatForm);
+  $('#catName').addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); saveCat(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeCatForm(); }
+  });
   $('#fDays').innerHTML = DOW_SHORT.map((d, i) => `<button type="button" class="day-pill" data-dow="${i}" aria-pressed="false" aria-label="${d}">${d[0]}</button>`).join('');
 
   const toTimeInput = (min) => `${pad(Math.floor(min / 60) % 24)}:${pad(min % 60)}`;
@@ -821,7 +886,8 @@
     $('#fDate').value = date;
     $('#fTitle').value = draft.title;
     $('#fNotes').value = draft.notes || '';
-    (dlg.querySelector(`input[name="cat"][value="${draft.cat}"]`) || dlg.querySelector(`input[name="cat"][value="${DEFAULT_CAT}"]`)).checked = true;
+    renderCatOptions(catById(draft.cat) ? draft.cat : DEFAULT_CAT);
+    closeCatForm();
     loadRepeatForm(draft.repeat, date);
     $('#fDelete').hidden = !draft.id;
     $('#fDelete').textContent = draft.repeat ? 'Delete all' : 'Delete';
