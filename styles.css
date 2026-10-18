@@ -364,6 +364,12 @@ select {
 .ev-done .ev-title { text-decoration: line-through; opacity: .6; }
 
 /* ---------- Kill list ---------- */
+.kill-btn {
+  background: linear-gradient(180deg, #ffd65a 0%, #f2b705 100%);
+  color: var(--ink);
+}
+.kill-btn:hover { background: linear-gradient(180deg, #ffde75 0%, #f5c021 100%); }
+.kill-btn .kill-count { background: var(--ink); }
 .kill-count {
   min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px;
   display: inline-grid; place-items: center;
