@@ -428,8 +428,9 @@
     if (h < 17) cls.push('ev-tiny');
     if (subs.length && done === subs.length) cls.push('ev-done');
     const title = e.title || '(untitled)';
-    return `<button class="${cls.join(' ')}" ${evAttrs(o)} title="${esc(`${title} · ${timeRange(o)}`)}" style="${catStyle(e)};top:${top}px;height:${h}px;left:calc(${it.col * w}% + 3px);width:calc(${w}% - 6px)">
+    return `<button class="${cls.join(' ')}" ${evAttrs(o)} title="${esc(`${title} · ${timeRange(o)}`)}" data-s="${it.s}" style="${catStyle(e)};top:${top}px;height:${h}px;left:calc(${it.col * w}% + 3px);width:calc(${w}% - 6px)">
       <span class="ev-title">${esc(title)}</span>
+      <span class="ev-resize" aria-hidden="true"></span>
     </button>`;
   }
 
@@ -1185,9 +1186,11 @@
     if (!e) return;
     const r = el.getBoundingClientRect();
     drag = {
-      el, o: occFor(e, el.dataset.occ), kind: el.classList.contains('ev') ? 'grid' : 'month',
+      el, o: occFor(e, el.dataset.occ),
+      kind: ev.target.closest('.ev-resize') ? 'resize' : el.classList.contains('ev') ? 'grid' : 'month',
       x0: ev.clientX, y0: ev.clientY, grabX: ev.clientX - r.left, grabY: ev.clientY - r.top,
       pointerId: ev.pointerId, touch: ev.pointerType === 'touch', active: false, timer: null,
+      edgeOff: r.bottom + 2 - ev.clientY, // where the task really ends, relative to the grab point
     };
     // on touch, hold briefly to pick a task up so normal swipes still scroll
     if (drag.touch) drag.timer = setTimeout(() => drag && !drag.active && startDrag(), 350);
@@ -1209,9 +1212,32 @@
       drag.label = document.createElement('span');
       drag.label.className = 'ev-drag-time';
       drag.el.append(drag.label);
-      drag.el.style.left = '3px';
-      drag.el.style.width = 'calc(100% - 6px)';
+      if (drag.kind === 'resize') {
+        drag.el.classList.add('resizing');
+        document.body.classList.add('is-resizing');
+        drag.startMin = +drag.el.dataset.s;
+        drag.date = drag.el.parentElement.dataset.col;
+      } else {
+        drag.el.style.left = '3px';
+        drag.el.style.width = 'calc(100% - 6px)';
+      }
     }
+  }
+
+  // drag the bottom edge: change the end time, keep the start
+  function moveResize(ev) {
+    const sc = view.querySelector('.tg-scroll');
+    const r = sc.getBoundingClientRect();
+    if (ev.clientY > r.bottom - 30) sc.scrollTop += 14;
+    else if (ev.clientY < sc.querySelector('.tg-head').getBoundingClientRect().bottom + 30) sc.scrollTop -= 14;
+    const col = drag.el.parentElement;
+    const y = ev.clientY - col.getBoundingClientRect().top + drag.edgeOff;
+    const endMin = Math.max(drag.startMin + SNAP, Math.min(1440, Math.round(((y / HOUR) * 60) / SNAP) * SNAP));
+    drag.endMin = endMin;
+    drag.el.style.height = `${Math.max(((endMin - drag.startMin) / 60) * HOUR - 2, 9)}px`;
+    const end = zonedToUtc(drag.date, endMin, state.tz);
+    const start = drag.o.start < zonedToUtc(drag.date, 0, state.tz) ? drag.o.start : zonedToUtc(drag.date, drag.startMin, state.tz);
+    drag.label.textContent = timeRange({ start, end });
   }
 
   function moveGrid(ev) {
@@ -1248,7 +1274,7 @@
       startDrag();
     }
     ev.preventDefault();
-    if (drag.kind === 'grid') moveGrid(ev); else moveMonth(ev);
+    if (drag.kind === 'grid') moveGrid(ev); else if (drag.kind === 'resize') moveResize(ev); else moveMonth(ev);
   });
   document.addEventListener('touchmove', (ev) => { if (drag?.active) ev.preventDefault(); }, { passive: false });
 
@@ -1260,9 +1286,15 @@
     if (!d.active) return;
     justDragged = true;
     setTimeout(() => { justDragged = false; }, 50);
-    document.body.classList.remove('is-dragging');
+    document.body.classList.remove('is-dragging', 'is-resizing');
     d.ghost?.remove();
     if (ev.type === 'pointercancel' || !d.date) { render(); return; }
+    if (d.kind === 'resize') {
+      const newEnd = zonedToUtc(d.date, d.endMin ?? 0, state.tz);
+      if (d.endMin == null || newEnd === d.o.end) { render(); return; }
+      commitResize(d.o, newEnd);
+      return;
+    }
     const min = d.kind === 'grid' ? d.min : minutesOf(d.o.start);
     const newStart = zonedToUtc(d.date, min, state.tz);
     if (newStart === d.o.start) { render(); return; }
@@ -1274,8 +1306,9 @@
   // --- applying a move ---
   const scopeDlg = $('#scopeAsk');
   let scopeResolve = null;
-  function askScope(e) {
-    $('#scopeText').textContent = `“${e.title || 'This task'}” repeats. Move just this one, or every time it happens?`;
+  function askScope(e, verb = 'Move') {
+    $('#scopeTitle').textContent = `${verb} repeating task`;
+    $('#scopeText').textContent = `“${e.title || 'This task'}” repeats. ${verb} just this one, or every time it happens?`;
     scopeDlg.showModal();
     return new Promise((resolve) => { scopeResolve = resolve; });
   }
@@ -1306,12 +1339,23 @@
     render();
   }
 
+  async function commitResize(o, newEnd) {
+    const e = o.e;
+    if (!e.repeat) e.end = newEnd;
+    else {
+      const scope = await askScope(e, 'Change');
+      if (scope === 'one') moveOne(o, o.start, newEnd);
+      else if (scope === 'all') e.end = e.start + (newEnd - o.start);
+    }
+    render();
+  }
+
   // pull one occurrence out of the series as its own task
-  function moveOne(o, newStart) {
+  function moveOne(o, newStart, newEnd = newStart + (o.end - o.start)) {
     const e = o.e;
     const done = new Set(e.checks?.[o.key] || []);
     const copy = structuredClone(e);
-    Object.assign(copy, { id: uid(), start: newStart, end: newStart + (o.end - o.start), repeat: null });
+    Object.assign(copy, { id: uid(), start: newStart, end: newEnd, repeat: null });
     delete copy.tz; delete copy.checks; delete copy.exdates;
     copy.subtasks = (copy.subtasks || []).map((s) => ({ ...s, done: done.has(s.id) }));
     (e.exdates ||= []).push(o.key);
