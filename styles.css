@@ -359,6 +359,8 @@ select {
 }
 .ev-short { justify-content: center; padding-top: 1px; padding-bottom: 1px; }
 .ev-short .ev-title { -webkit-line-clamp: 1; }
+.ev-tiny { padding: 0 6px; border-radius: 4px; }
+.ev-tiny .ev-title { font-size: 10px; line-height: 1; }
 .ev-done .ev-title { text-decoration: line-through; opacity: .6; }
 
 /* ---------- World clock ---------- */

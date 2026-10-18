@@ -223,8 +223,8 @@
     const items = eventsOn(s).map((o) => {
       const st = o.start <= a ? 0 : minutesOf(o.start);
       let en = o.end >= b ? 1440 : minutesOf(o.end);
-      if (en <= st) en = Math.min(1440, st + 30);
-      return { o, s: st, en: Math.max(en, st + 20) };
+      if (en <= st) en = Math.min(1440, st + 15);
+      return { o, s: st, en };
     });
     items.sort((x, y) => x.s - y.s || y.en - x.en);
     const out = [];
@@ -239,11 +239,24 @@
       for (const it of cluster) it.cols = cols.length;
       out.push(...cluster); cluster = [];
     };
+    let clusterId = 0;
     for (const it of items) {
-      if (cluster.length && it.s >= clusterEnd) { flush(); clusterEnd = -1; }
+      if (cluster.length && it.s >= clusterEnd) { flush(); clusterEnd = -1; clusterId++; }
+      it.cluster = clusterId;
       cluster.push(it); clusterEnd = Math.max(clusterEnd, it.en);
     }
     if (cluster.length) flush();
+    // Overlap is judged on real times above. Short tasks are then drawn a little taller so
+    // they stay readable, but never past the start of the next task that shares their space.
+    const MIN_DRAWN = 20;
+    for (const it of out) {
+      let cap = 1440;
+      for (const o of out) {
+        if (o === it || o.s < it.en) continue;
+        if (o.cluster !== it.cluster || o.col === it.col) cap = Math.min(cap, o.s);
+      }
+      it.drawEnd = Math.max(it.en, Math.min(it.s + MIN_DRAWN, cap));
+    }
     return out;
   }
 
@@ -392,11 +405,12 @@
   function eventBlock(it) {
     const o = it.o, e = o.e;
     const top = (it.s / 60) * HOUR;
-    const h = Math.max(((it.en - it.s) / 60) * HOUR - 2, 18);
+    const h = Math.max(((it.drawEnd - it.s) / 60) * HOUR - 2, 9);
     const w = 100 / it.cols;
     const { subs, done } = progress(o);
     const cls = ['ev'];
     if (h < 40) cls.push('ev-short');
+    if (h < 17) cls.push('ev-tiny');
     if (subs.length && done === subs.length) cls.push('ev-done');
     const title = e.title || '(untitled)';
     return `<button class="${cls.join(' ')}" ${evAttrs(o)} title="${esc(`${title} · ${timeRange(o)}`)}" style="${catStyle(e)};top:${top}px;height:${h}px;left:calc(${it.col * w}% + 3px);width:calc(${w}% - 6px)">
