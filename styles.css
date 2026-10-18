@@ -615,6 +615,15 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
 .opt:has(input:checked) .radio { border-color: var(--c); }
 .opt:has(input:checked) .radio::after { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
 .opt:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.zone-times {
+  list-style: none; margin: 0; padding: 4px 12px;
+  border: 1.5px solid var(--line); border-radius: 10px; background: var(--surface-2);
+}
+.zone-times li { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; font-size: 14px; }
+.zone-times li + li { border-top: 1px solid var(--line); }
+.zt-name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zt-time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.zt-day { font-size: 12px; font-weight: 600; color: var(--accent); }
 .rep-panel {
   display: flex; flex-direction: column; gap: 10px;
   padding: 12px; margin-top: 2px;

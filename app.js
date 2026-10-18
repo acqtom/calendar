@@ -815,9 +815,36 @@
     $('#fSubsNote').hidden = !(draft.repeat && draftOcc);
     if (draftOcc) $('#fSubsNote').textContent = `Ticks apply to ${fmt(draftOcc, { weekday: 'short', day: 'numeric', month: 'short' })} only`;
     renderDraftSubs();
+    renderEditorZones();
     dlg.showModal();
     $('#fTitle').focus();
   }
+
+  // the task's time converted into each saved world-clock zone
+  function rangeIn(start, end, tz) {
+    const a = timeIn(start, tz), b = timeIn(end, tz);
+    return a.slice(-2) === b.slice(-2) ? `${a.slice(0, -3)} – ${b}` : `${a} – ${b}`;
+  }
+  function renderEditorZones() {
+    const zones = state.clocks.filter((z) => z !== state.tz);
+    const field = $('#fZonesField');
+    const date = $('#fDate').value, s = $('#fStart').value, en = $('#fEnd').value;
+    field.hidden = !zones.length || !date || !s || !en;
+    if (field.hidden) return;
+    const [sh, sm] = s.split(':').map(Number), [eh, em] = en.split(':').map(Number);
+    const sMin = sh * 60 + sm, eMin = eh * 60 + em;
+    const start = zonedToUtc(date, sMin, state.tz);
+    const end = eMin === sMin ? start + 30 * 60000 : zonedToUtc(eMin > sMin ? date : addDays(date, 1), eMin, state.tz);
+    $('#fZones').innerHTML = zones.map((z) => {
+      const n = daysBetween(date, dateIn(start, z));
+      const day = n === 0 ? '' : fmt(dateIn(start, z), { weekday: 'short', day: 'numeric', month: 'short' });
+      return `<li><span class="zt-name">${esc(clockName(z))}</span><span class="zt-time">${rangeIn(start, end, z)}</span>${day ? `<span class="zt-day">${esc(day)}</span>` : ''}</li>`;
+    }).join('');
+  }
+  ['fDate', 'fStart', 'fEnd'].forEach((id) => {
+    $('#' + id).addEventListener('input', renderEditorZones);
+    $('#' + id).addEventListener('change', renderEditorZones);
+  });
 
   function renderDraftSubs() {
     $('#fSubs').innerHTML = draft.subtasks.map((s) => checkItem(s, `draft:${s.id}`, draftChecks.has(s.id))).join('');
