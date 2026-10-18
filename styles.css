@@ -129,28 +129,44 @@ h1, h2, h3 { margin: 0; font-family: var(--display); letter-spacing: -0.02em; }
 .icon-btn.xs:hover { transform: none; box-shadow: none; background: var(--surface-2); }
 .icon-btn.xs svg { width: 15px; height: 15px; }
 
-.tz-pick {
-  position: relative; display: flex; align-items: center;
-  height: 44px; padding: 0 30px 0 12px; gap: 8px;
+.tz-pick { position: relative; }
+.tz-btn {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 32px 0 12px; max-width: 280px;
   border: 2px solid var(--ink); border-radius: var(--radius-sm);
   background: var(--surface); box-shadow: 3px 3px 0 var(--ink);
-  cursor: pointer;
+  font-family: var(--display); font-weight: 700; font-size: 14px;
+  transition: transform .1s, box-shadow .1s;
 }
-.tz-pick svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.tz-pick::after {
+.tz-btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.tz-btn span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tz-btn svg { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.tz-btn::after {
   content: ''; position: absolute; right: 13px; top: 50%;
   width: 6px; height: 6px; margin-top: -5px;
   border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink);
   transform: rotate(45deg); pointer-events: none;
 }
-.tz-pick select {
-  width: auto; max-width: 230px; min-height: 0; height: 100%;
-  padding: 0; border: 0; background: transparent; box-shadow: none;
-  font-family: var(--display); font-weight: 700; font-size: 14px; cursor: pointer;
-  text-overflow: ellipsis;
+.tz-btn[aria-expanded="true"]::after { margin-top: -1px; transform: rotate(-135deg); }
+.tz-pop {
+  position: absolute; right: 0; top: calc(100% + 10px); z-index: 30;
+  width: min(340px, calc(100vw - 32px));
+  padding: 8px;
+  background: var(--surface);
+  border: 2px solid var(--ink); border-radius: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
 }
-.tz-pick select:focus { box-shadow: none; }
-.tz-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tz-pop input { height: 40px; }
+#tzList { list-style: none; margin: 8px 0 0; padding: 0; max-height: 320px; overflow-y: auto; scrollbar-width: thin; }
+#tzList li {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; border-radius: 6px; font-size: 13.5px; cursor: pointer;
+}
+#tzList li.active { background: var(--accent-soft); }
+#tzList li[aria-selected="true"] { color: var(--accent); font-weight: 700; }
+#tzList .tz-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#tzList .tz-off { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#tzList .tz-empty { color: var(--dim); cursor: default; }
 .seg {
   display: flex; padding: 3px; gap: 2px;
   border: 2px solid var(--ink);
@@ -562,7 +578,8 @@ select {
   .nav { order: 2; flex-basis: 100%; }
   .top-right { flex: 1; justify-content: space-between; flex-wrap: wrap; }
   .tz-pick { order: 3; flex-basis: 100%; }
-  .tz-pick select { max-width: none; flex: 1; }
+  .tz-btn { max-width: none; width: 100%; }
+  .tz-pop { left: 0; right: auto; }
   .btn.primary span { display: none; }
   .btn.primary { width: 44px; padding: 0; }
   .seg button { padding: 0 12px; }

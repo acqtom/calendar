@@ -31,10 +31,17 @@
       </div>
 
       <div class="top-right">
-        <label class="tz-pick" title="Timezone">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg>
-          <select id="tzSelect" aria-label="Timezone"></select>
-        </label>
+        <div class="tz-pick" id="tzPick">
+          <button type="button" class="tz-btn" id="tzBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="tzPop" title="Timezone">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg>
+            <span id="tzLabel"></span>
+          </button>
+          <div class="tz-pop" id="tzPop" hidden>
+            <input id="tzSearch" type="search" placeholder="Search city, region or GMT+4…" autocomplete="off" spellcheck="false"
+                   role="combobox" aria-expanded="true" aria-controls="tzList" aria-autocomplete="list" aria-label="Search timezones">
+            <ul id="tzList" role="listbox" aria-label="Timezones"></ul>
+          </div>
+        </div>
         <div class="seg" role="tablist" aria-label="View">
           <button role="tab" data-view="day">Day</button>
           <button role="tab" data-view="week">Week</button>

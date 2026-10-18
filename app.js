@@ -450,33 +450,84 @@
     return html + '</div></div>';
   }
 
-  // ---------- timezone picker ----------
+  // ---------- timezone picker (searchable) ----------
   // Tasks are stored as exact moments, so switching zone moves every task to its local time there.
-  let tzBuilt = false;
-  function renderTzPicker() {
-    const sel = $('#tzSelect');
-    if (!tzBuilt) {
-      let zones = [];
-      try { zones = Intl.supportedValuesOf('timeZone'); } catch { /* older browsers: fall back to a short list */ }
-      if (!zones.length) zones = ['Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Tokyo', 'Australia/Sydney'];
-      zones = [...new Set(['UTC', state.tz, ...zones])].filter((z) => z !== localTz && isValidTz(z)).sort((a, b) => a.localeCompare(b));
-      const now = Date.now();
-      const label = (z) => `${z.replace(/_/g, ' ')} (${shortOffset(now, z)})`;
-      sel.innerHTML = `<option value="${esc(localTz)}">Local · ${esc(label(localTz))}</option>`
-        + zones.map((z) => `<option value="${esc(z)}">${esc(label(z))}</option>`).join('');
-      tzBuilt = true;
-    }
-    sel.value = state.tz;
+  let zoneList = null;
+  const cityOf = (z) => z.split('/').pop().replace(/_/g, ' ');
+  function buildZones() {
+    let zones = [];
+    try { zones = Intl.supportedValuesOf('timeZone'); } catch { /* older browsers: fall back to a short list */ }
+    if (!zones.length) zones = ['Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Tokyo', 'Australia/Sydney'];
+    zones = [...new Set(['UTC', state.tz, ...zones])].filter((z) => z !== localTz && isValidTz(z)).sort((a, b) => a.localeCompare(b));
+    const now = Date.now();
+    zoneList = [localTz, ...zones].map((z) => {
+      const off = shortOffset(now, z);
+      const local = z === localTz;
+      const name = z.replace(/_/g, ' ');
+      return { z, off, local, name, key: `${name} ${z} ${off} ${off.replace('GMT', 'UTC')} ${local ? 'local' : ''}`.toLowerCase() };
+    });
   }
-  $('#tzSelect').addEventListener('change', (ev) => {
-    const tz = ev.target.value;
+  const tzPop = $('#tzPop'), tzSearch = $('#tzSearch'), tzListEl = $('#tzList'), tzBtn = $('#tzBtn');
+  let tzMatches = [], tzActive = 0;
+
+  function renderTzPicker() {
+    if (!zoneList) buildZones();
+    const cur = zoneList.find((x) => x.z === state.tz);
+    $('#tzLabel').textContent = `${state.tz === localTz ? 'Local · ' : ''}${cityOf(state.tz)} (${cur ? cur.off : shortOffset(Date.now(), state.tz)})`;
+  }
+  function filterTz() {
+    const words = tzSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    tzMatches = zoneList.filter((x) => words.every((w) => x.key.includes(w)));
+    tzActive = Math.max(0, tzMatches.findIndex((x) => x.z === state.tz));
+    if (words.length) tzActive = 0;
+    tzListEl.innerHTML = tzMatches.length
+      ? tzMatches.map((x, i) => `<li role="option" id="tzo-${i}" data-tz="${esc(x.z)}" aria-selected="${x.z === state.tz}"${i === tzActive ? ' class="active"' : ''}>
+          <span class="tz-name">${x.local ? '<b>Local</b> · ' : ''}${esc(x.name)}</span><span class="tz-off">${esc(x.off)}</span></li>`).join('')
+      : '<li class="tz-empty">No matching timezones</li>';
+    moveTz(0);
+  }
+  function moveTz(step) {
+    if (!tzMatches.length) return;
+    tzActive = (tzActive + step + tzMatches.length) % tzMatches.length;
+    tzListEl.querySelectorAll('.active').forEach((el) => el.classList.remove('active'));
+    const el = $(`#tzo-${tzActive}`);
+    if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); tzSearch.setAttribute('aria-activedescendant', el.id); }
+  }
+  function openTz() {
+    tzPop.hidden = false;
+    tzBtn.setAttribute('aria-expanded', 'true');
+    tzSearch.value = '';
+    filterTz();
+    tzSearch.focus();
+  }
+  function closeTz(refocus) {
+    if (tzPop.hidden) return;
+    tzPop.hidden = true;
+    tzBtn.setAttribute('aria-expanded', 'false');
+    if (refocus) tzBtn.focus();
+  }
+  function setTz(tz) {
+    closeTz(true);
     if (!isValidTz(tz) || tz === state.tz) return;
     state.tz = tz;
     // keep looking at the same moment: jump to today's date in the new zone
     state.cursor = state.selected = today();
     state.mini = state.cursor.slice(0, 8) + '01';
     render();
+  }
+  tzBtn.addEventListener('click', () => (tzPop.hidden ? openTz() : closeTz(true)));
+  tzSearch.addEventListener('input', filterTz);
+  tzSearch.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowDown') { ev.preventDefault(); moveTz(1); }
+    else if (ev.key === 'ArrowUp') { ev.preventDefault(); moveTz(-1); }
+    else if (ev.key === 'Enter') { ev.preventDefault(); if (tzMatches[tzActive]) setTz(tzMatches[tzActive].z); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); closeTz(true); }
   });
+  tzListEl.addEventListener('click', (ev) => {
+    const li = ev.target.closest('[data-tz]');
+    if (li) setTz(li.dataset.tz);
+  });
+  document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('#tzPick')) closeTz(false); });
 
   // ---------- live bits: now line, day rollover ----------
   let lastMinute = '';
