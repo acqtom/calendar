@@ -31,6 +31,11 @@
       </div>
 
       <div class="top-right">
+        <button type="button" class="tz-btn clocks-btn kill-btn" id="killBtn" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+          <span>Kill list</span>
+          <b class="kill-count" id="killCount" hidden></b>
+        </button>
         <button type="button" class="tz-btn clocks-btn" id="clocksBtn" aria-haspopup="dialog">
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           <span>Time zones</span>
@@ -175,6 +180,52 @@
         <button type="button" class="btn danger" id="fDeleteOne" hidden>Delete this one</button>
         <button type="button" class="btn danger" id="fDelete">Delete</button>
         <button type="submit" class="btn primary wide">Save <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Kill list: client priorities, highest first -->
+  <dialog id="kill" class="sheet kill">
+    <div class="kill-body">
+      <div class="sheet-head">
+        <h2>Kill list</h2>
+        <button type="button" class="icon-btn" data-close-kill aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <form class="kill-form" id="killForm" autocomplete="off">
+        <div class="kill-row kill-row-top">
+          <label class="field kf-client"><span>Client</span>
+            <div class="select-wrap"><select id="kClient"></select></div>
+          </label>
+          <label class="field kf-due"><span>Due</span><input type="date" id="kDue"></label>
+          <label class="field kf-pri"><span>Priority</span>
+            <div class="select-wrap"><select id="kPri"></select></div>
+          </label>
+        </div>
+        <div class="kill-new-client" id="kNewClient" hidden>
+          <input id="kClientName" placeholder="New client name" maxlength="40" aria-label="New client name">
+          <button type="button" class="btn sm" id="kClientCancel">Cancel</button>
+          <button type="button" class="btn sm primary" id="kClientAdd">Add client</button>
+        </div>
+        <div class="kill-row">
+          <label class="field kf-task"><span>Task</span><input id="kTask" placeholder="What needs killing?" maxlength="200" required></label>
+          <button type="submit" class="btn primary kf-add">Add <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+
+      <div class="kill-filter" id="killFilter"></div>
+      <ul class="kill-list" id="killList"></ul>
+    </div>
+  </dialog>
+
+  <!-- Asked when a kill-list task is ticked -->
+  <dialog id="killAsk" class="sheet sheet-sm">
+    <form method="dialog" class="ask">
+      <h2>Task done?</h2>
+      <p id="killAskText"></p>
+      <div class="ask-btns">
+        <button type="button" data-kill-ask="keep" class="btn">Keep it</button>
+        <button type="button" data-kill-ask="delete" class="btn primary btn-kill">Delete</button>
       </div>
     </form>
   </dialog>

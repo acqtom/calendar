@@ -124,7 +124,7 @@
 
   // ---------- state ----------
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'], clockNames: {}, customCats: [] };
+  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'], clockNames: {}, customCats: [], kills: [], clients: [] };
 
   function load() {
     try {
@@ -136,6 +136,8 @@
       state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
       if (Array.isArray(saved.clocks)) state.clocks = saved.clocks.filter(isValidTz);
       if (saved.clockNames && typeof saved.clockNames === 'object') state.clockNames = saved.clockNames;
+      if (Array.isArray(saved.kills)) state.kills = saved.kills.filter((k) => k && k.id && k.text);
+      if (Array.isArray(saved.clients)) state.clients = saved.clients.filter((c) => typeof c === 'string' && c.trim());
       if (Array.isArray(saved.customCats)) state.customCats = saved.customCats.filter((c) => c && c.id && c.label);
       for (const e of state.events) if (!catById(e.cat)) e.cat = DEFAULT_CAT;
       return true;
@@ -143,7 +145,7 @@
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks, clockNames: state.clockNames, customCats: state.customCats }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks, clockNames: state.clockNames, customCats: state.customCats, kills: state.kills, clients: state.clients }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -286,6 +288,7 @@
     $('#fTz').textContent = state.tz.replace(/_/g, ' ');
     renderTzPicker();
     renderClocks();
+    renderKill();
     lastMinute = '';
     tick();
     save();
@@ -567,6 +570,138 @@
     if (li) setTz(li.dataset.tz);
   });
   document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('#tzPick')) closeTz(false); });
+
+  // ---------- kill list ----------
+  // Client priorities: 10 = most urgent, sorted to the top; ties go to the earliest due date.
+  const killDlg = $('#kill');
+  let killFilter = '';
+  const NEW_CLIENT = '__new__';
+  const priTier = (p) => (p >= 8 ? 'hi' : p >= 5 ? 'mid' : 'lo');
+  function dueLabel(d) {
+    if (!d) return { text: 'No date', cls: '' };
+    const n = daysBetween(today(), d);
+    if (n < 0) return { text: n === -1 ? 'Overdue · yesterday' : `Overdue · ${-n} days`, cls: 'overdue' };
+    if (n === 0) return { text: 'Due today', cls: 'soon' };
+    if (n === 1) return { text: 'Due tomorrow', cls: 'soon' };
+    return { text: `Due ${fmt(d, { weekday: 'short', day: 'numeric', month: 'short' })}`, cls: '' };
+  }
+  const killSort = (a, b) => b.priority - a.priority || (a.due || '9999').localeCompare(b.due || '9999') || a.created - b.created;
+  function renderClientSelect(selected) {
+    $('#kClient').innerHTML = '<option value="">No client</option>'
+      + state.clients.map((c) => `<option value="${esc(c)}"${c === selected ? ' selected' : ''}>${esc(c)}</option>`).join('')
+      + `<option value="${NEW_CLIENT}">+ New client…</option>`;
+  }
+  function killRow(k) {
+    const due = dueLabel(k.due);
+    return `<li class="kill-item${k.done ? ' done' : ''}">
+      <label class="pri pri-${priTier(k.priority)}" title="Priority (10 = most urgent)">
+        <select data-kill-pri="${k.id}" aria-label="Priority">${Array.from({ length: 10 }, (_, i) => 10 - i).map((p) => `<option${p === k.priority ? ' selected' : ''}>${p}</option>`).join('')}</select>
+      </label>
+      <label class="tcheck kill-check"><input type="checkbox" data-kill-done="${k.id}"${k.done ? ' checked' : ''}><span class="box"></span>
+        <span class="kill-text"><span class="txt">${esc(k.text)}</span>
+          <span class="kill-meta">${k.client ? `<span class="client-tag">${esc(k.client)}</span>` : ''}<span class="due ${k.done ? '' : due.cls}">${esc(due.text)}</span></span>
+        </span>
+      </label>
+      <button type="button" class="del" data-kill-del="${k.id}" aria-label="Delete">${ICONS.x}</button>
+    </li>`;
+  }
+  function renderKill() {
+    const open = state.kills;
+    const cnt = $('#killCount');
+    cnt.hidden = !open.length;
+    cnt.textContent = open.length;
+    if (!killDlg.open) return;
+    if (killFilter && !state.clients.includes(killFilter)) killFilter = '';
+    const used = state.clients.filter((c) => state.kills.some((k) => k.client === c));
+    $('#killFilter').innerHTML = used.length
+      ? [['', 'All'], ...used.map((c) => [c, c])].map(([v, l]) => `<button type="button" class="filter-chip${killFilter === v ? ' active' : ''}" data-kill-filter="${esc(v)}">${esc(l)}</button>`).join('')
+      : '';
+    const pass = (k) => !killFilter || k.client === killFilter;
+    const live = open.filter(pass).sort(killSort);
+    $('#killList').innerHTML = live.length ? live.map(killRow).join('') : `<li class="kill-empty">${open.length ? 'Nothing for this client.' : 'Nothing on the list. Add your first priority above.'}</li>`;
+  }
+  function openKill() {
+    renderClientSelect(killFilter || state.clients[0] || '');
+    $('#kPri').innerHTML = Array.from({ length: 10 }, (_, i) => 10 - i).map((p) => `<option value="${p}"${p === 5 ? ' selected' : ''}>${p}${p === 10 ? ' · most urgent' : p === 1 ? ' · least' : ''}</option>`).join('');
+    $('#kDue').value = '';
+    $('#kTask').value = '';
+    $('#kNewClient').hidden = true;
+    killDlg.showModal();
+    renderKill();
+    $('#kTask').focus();
+  }
+  function showNewClient(show) {
+    $('#kNewClient').hidden = !show;
+    if (show) { $('#kClientName').value = ''; $('#kClientName').focus(); }
+  }
+  function addClient() {
+    const name = $('#kClientName').value.trim();
+    if (!name) { $('#kClientName').focus(); return; }
+    if (!state.clients.some((c) => c.toLowerCase() === name.toLowerCase())) state.clients.push(name);
+    const match = state.clients.find((c) => c.toLowerCase() === name.toLowerCase());
+    save();
+    renderClientSelect(match);
+    showNewClient(false);
+    $('#kTask').focus();
+  }
+  $('#killBtn').addEventListener('click', openKill);
+  $('#kClient').addEventListener('change', (ev) => {
+    if (ev.target.value === NEW_CLIENT) { ev.target.value = ''; showNewClient(true); }
+  });
+  $('#kClientAdd').addEventListener('click', addClient);
+  $('#kClientCancel').addEventListener('click', () => showNewClient(false));
+  $('#kClientName').addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter') { ev.preventDefault(); addClient(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); showNewClient(false); }
+  });
+  $('#killForm').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const text = $('#kTask').value.trim();
+    if (!text) return;
+    state.kills.push({ id: uid(), text, client: $('#kClient').value, due: $('#kDue').value, priority: +$('#kPri').value || 5, done: false, created: Date.now() });
+    save();
+    $('#kTask').value = '';
+    renderKill();
+    $('#kTask').focus();
+  });
+  killDlg.addEventListener('click', (ev) => {
+    if (ev.target === killDlg || ev.target.closest('[data-close-kill]')) { killDlg.close(); return; }
+    const del = ev.target.closest('[data-kill-del]');
+    if (del) { state.kills = state.kills.filter((k) => k.id !== del.dataset.killDel); save(); renderKill(); return; }
+    const f = ev.target.closest('[data-kill-filter]');
+    if (f) { killFilter = f.dataset.killFilter; renderKill(); }
+  });
+  killDlg.addEventListener('change', (ev) => {
+    const done = ev.target.dataset.killDone, pri = ev.target.dataset.killPri;
+    const k = state.kills.find((x) => x.id === (done || pri));
+    if (!k) return;
+    if (pri) { k.priority = +ev.target.value; save(); renderKill(); }
+    if (done && ev.target.checked) askKillDone(k, ev.target);
+  });
+
+  // ticking a task asks before removing it; "Keep it" unticks
+  const killAsk = $('#killAsk');
+  let killPending = null;
+  function askKillDone(k, box) {
+    killPending = { k, box };
+    $('#killAskText').textContent = `Nice. Delete “${k.text}” from your kill list?`;
+    killAsk.showModal();
+  }
+  function finishKillAsk(choice) {
+    const p = killPending;
+    killPending = null;
+    if (killAsk.open) killAsk.close();
+    if (!p) return;
+    if (choice === 'delete') { state.kills = state.kills.filter((x) => x.id !== p.k.id); save(); }
+    else p.box.checked = false;
+    renderKill();
+  }
+  killAsk.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-kill-ask]');
+    if (b) finishKillAsk(b.dataset.killAsk);
+    else if (ev.target === killAsk) finishKillAsk('keep');
+  });
+  killAsk.addEventListener('close', () => finishKillAsk('keep')); // Escape key
 
   // ---------- world clock ----------
   const clocksDlg = $('#clocks');
@@ -1155,7 +1290,7 @@
 
   // keyboard shortcuts: d / w / m, t, n, ← →
   document.addEventListener('keydown', (ev) => {
-    if (dlg.open || scopeDlg.open || clocksDlg.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (dlg.open || scopeDlg.open || clocksDlg.open || killDlg.open || killAsk.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (ev.target.closest('input, textarea, select')) return;
     const k = ev.key.toLowerCase();
     if (k === 'd') setView('day');
