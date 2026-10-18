@@ -388,6 +388,15 @@ select {
 .clock-row:hover .del, .clock-row .del:focus-visible { opacity: 1; }
 .clock-name, .clock-time { display: flex; flex-direction: column; min-width: 0; }
 .clock-name b { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.clock-rename {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+  margin: -2px -6px; padding: 2px 6px; border: 0; border-radius: 6px; background: none; text-align: left;
+}
+.clock-rename:hover { background: var(--surface-2); }
+.clock-rename svg { width: 13px; height: 13px; flex: none; color: var(--dim); opacity: 0; transition: opacity .15s; }
+.clock-row:hover .clock-rename svg, .clock-rename:focus-visible svg { opacity: 1; }
+@media (hover: none) { .clock-rename svg { opacity: .7; } }
+.clock-name-input { height: 30px; margin-bottom: 3px; padding: 2px 8px; font-size: 15px; font-weight: 700; max-width: 220px; }
 .clock-name small, .clock-time small { font-size: 12px; color: var(--muted); font-weight: 500; }
 .clock-time { align-items: flex-end; text-align: right; }
 .clock-time b { font-family: var(--display); font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }

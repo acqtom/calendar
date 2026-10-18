@@ -22,6 +22,7 @@
     repeat: svgLine('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>'),
     check: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     x: '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+    pencil: svgLine('<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>'),
   };
 
   const CATS = {
@@ -109,7 +110,7 @@
 
   // ---------- state ----------
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'] };
+  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'], clockNames: {} };
 
   function load() {
     try {
@@ -120,13 +121,14 @@
       state.events = Array.isArray(saved.events) ? saved.events : [];
       state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
       if (Array.isArray(saved.clocks)) state.clocks = saved.clocks.filter(isValidTz);
+      if (saved.clockNames && typeof saved.clockNames === 'object') state.clockNames = saved.clockNames;
       for (const e of state.events) if (!CATS[e.cat]) e.cat = DEFAULT_CAT;
       return true;
     } catch { return false; }
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks, clockNames: state.clockNames }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -568,15 +570,52 @@
       $('#cmpTime').value = toTimeInput(minutesOf(now));
     }
     $('#cmpNow').hidden = cmpAt == null;
+    if (editingClock) return; // don't redraw the list under someone typing a name
     const zones = state.clocks.filter((z) => z !== state.tz);
     $('#clockList').innerHTML = zones.length
       ? zones.map((z) => `<li class="clock-row">
-          <span class="clock-name"><b>${esc(cityOf(z))}</b><small>${esc(z.includes('/') ? z.split('/')[0].replace(/_/g, ' ') : 'Universal')} · ${esc(shortOffset(at, z))}</small></span>
+          <span class="clock-name">
+            <button type="button" class="clock-rename" data-clock-rename="${esc(z)}" title="Rename"><b>${esc(clockName(z))}</b>${ICONS.pencil}</button>
+            <small>${state.clockNames[z] ? `${esc(cityOf(z))} · ` : ''}${esc(z.includes('/') ? z.split('/')[0].replace(/_/g, ' ') : 'Universal')} · ${esc(shortOffset(at, z))}</small>
+          </span>
           <span class="clock-time"><b>${timeIn(at, z)}</b><small>${[dayLabel(at, z), diffLabel(at, z)].filter(Boolean).join(' · ')}</small></span>
           ${hourHint(at, z)}
           <button type="button" class="del" data-clock-del="${esc(z)}" aria-label="Remove ${esc(cityOf(z))}">${ICONS.x}</button>
         </li>`).join('')
       : '<li class="clock-empty">Add a time zone below to compare times.</li>';
+  }
+  let editingClock = null;
+  const clockName = (z) => state.clockNames[z] || cityOf(z);
+  function startRename(z) {
+    const btn = $('#clockList').querySelector(`[data-clock-rename="${CSS.escape(z)}"]`);
+    if (!btn) return;
+    editingClock = z;
+    const input = document.createElement('input');
+    input.className = 'clock-name-input';
+    input.value = clockName(z);
+    input.maxLength = 40;
+    input.setAttribute('aria-label', `Rename ${cityOf(z)}`);
+    input.placeholder = cityOf(z);
+    btn.replaceWith(input);
+    input.focus();
+    input.select();
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      const name = input.value.trim();
+      if (keep) {
+        if (name && name !== cityOf(z)) state.clockNames[z] = name; else delete state.clockNames[z];
+        save();
+      }
+      editingClock = null;
+      renderClocks();
+    };
+    input.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
   }
   function openClocks() {
     cmpAt = null;
@@ -601,6 +640,8 @@
     if (ev.target === clocksDlg || ev.target.closest('[data-close-clocks]')) { clocksDlg.close(); return; }
     const del = ev.target.closest('[data-clock-del]');
     if (del) { state.clocks = state.clocks.filter((z) => z !== del.dataset.clockDel); save(); renderClocks(); return; }
+    const ren = ev.target.closest('[data-clock-rename]');
+    if (ren) { startRename(ren.dataset.clockRename); return; }
     const add = ev.target.closest('[data-clock-add]');
     if (add) addClock(add.dataset.clockAdd);
   });
