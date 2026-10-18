@@ -116,6 +116,7 @@
       const saved = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
       if (!saved) return false;
       if (['day', 'week', 'month'].includes(saved.view)) state.view = saved.view;
+      if (saved.tz && isValidTz(saved.tz)) state.tz = saved.tz;
       state.events = Array.isArray(saved.events) ? saved.events : [];
       state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
       for (const e of state.events) if (!CATS[e.cat]) e.cat = DEFAULT_CAT;
@@ -124,7 +125,7 @@
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, events: state.events, todos: state.todos }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -252,6 +253,7 @@
     renderMini();
     renderView();
     $('#fTz').textContent = state.tz.replace(/_/g, ' ');
+    renderTzPicker();
     lastMinute = '';
     tick();
     save();
@@ -447,6 +449,34 @@
     }
     return html + '</div></div>';
   }
+
+  // ---------- timezone picker ----------
+  // Tasks are stored as exact moments, so switching zone moves every task to its local time there.
+  let tzBuilt = false;
+  function renderTzPicker() {
+    const sel = $('#tzSelect');
+    if (!tzBuilt) {
+      let zones = [];
+      try { zones = Intl.supportedValuesOf('timeZone'); } catch { /* older browsers: fall back to a short list */ }
+      if (!zones.length) zones = ['Europe/London', 'America/New_York', 'America/Los_Angeles', 'Asia/Dubai', 'Asia/Tokyo', 'Australia/Sydney'];
+      zones = [...new Set(['UTC', state.tz, ...zones])].filter((z) => z !== localTz && isValidTz(z)).sort((a, b) => a.localeCompare(b));
+      const now = Date.now();
+      const label = (z) => `${z.replace(/_/g, ' ')} (${shortOffset(now, z)})`;
+      sel.innerHTML = `<option value="${esc(localTz)}">Local · ${esc(label(localTz))}</option>`
+        + zones.map((z) => `<option value="${esc(z)}">${esc(label(z))}</option>`).join('');
+      tzBuilt = true;
+    }
+    sel.value = state.tz;
+  }
+  $('#tzSelect').addEventListener('change', (ev) => {
+    const tz = ev.target.value;
+    if (!isValidTz(tz) || tz === state.tz) return;
+    state.tz = tz;
+    // keep looking at the same moment: jump to today's date in the new zone
+    state.cursor = state.selected = today();
+    state.mini = state.cursor.slice(0, 8) + '01';
+    render();
+  });
 
   // ---------- live bits: now line, day rollover ----------
   let lastMinute = '';
