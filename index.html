@@ -31,6 +31,10 @@
       </div>
 
       <div class="top-right">
+        <button type="button" class="tz-btn clocks-btn" id="clocksBtn" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          <span>Time zones</span>
+        </button>
         <div class="tz-pick" id="tzPick">
           <button type="button" class="tz-btn" id="tzBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="tzPop" title="Timezone">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z"/></svg>
@@ -159,6 +163,36 @@
         <button type="submit" class="btn primary wide">Save <span aria-hidden="true">→</span></button>
       </div>
     </form>
+  </dialog>
+
+  <!-- World clock: your time plus zones to compare -->
+  <dialog id="clocks" class="sheet clocks">
+    <div class="clocks-body">
+      <div class="sheet-head">
+        <h2>Time zones</h2>
+        <button type="button" class="icon-btn" data-close-clocks aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      </div>
+
+      <section class="my-time">
+        <span class="my-label" id="myZone"></span>
+        <span class="my-clock" id="myClock"></span>
+        <span class="my-date" id="myDate"></span>
+      </section>
+
+      <div class="compare">
+        <span class="compare-label">Compare at</span>
+        <input type="date" id="cmpDate" aria-label="Compare date">
+        <input type="time" id="cmpTime" aria-label="Compare time" step="900">
+        <button type="button" class="btn sm" id="cmpNow">Now</button>
+      </div>
+
+      <ul class="clock-list" id="clockList"></ul>
+
+      <div class="clock-add">
+        <input type="search" id="clockSearch" placeholder="Add a time zone: city, region or GMT+4…" autocomplete="off" spellcheck="false" aria-label="Add a time zone">
+        <ul class="clock-results" id="clockResults" hidden></ul>
+      </div>
+    </div>
   </dialog>
 
   <!-- Asked when a repeating task is dragged -->

@@ -109,7 +109,7 @@
 
   // ---------- state ----------
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {} };
+  const state = { tz: localTz, view: window.innerWidth < 640 ? 'day' : 'week', cursor: '', selected: '', mini: '', events: [], todos: {}, clocks: ['Europe/London', 'America/New_York'] };
 
   function load() {
     try {
@@ -119,13 +119,14 @@
       if (saved.tz && isValidTz(saved.tz)) state.tz = saved.tz;
       state.events = Array.isArray(saved.events) ? saved.events : [];
       state.todos = saved.todos && typeof saved.todos === 'object' ? saved.todos : {};
+      if (Array.isArray(saved.clocks)) state.clocks = saved.clocks.filter(isValidTz);
       for (const e of state.events) if (!CATS[e.cat]) e.cat = DEFAULT_CAT;
       return true;
     } catch { return false; }
   }
   function save() {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos }));
+      localStorage.setItem(LS_KEY, JSON.stringify({ view: state.view, tz: state.tz, events: state.events, todos: state.todos, clocks: state.clocks }));
     } catch { /* storage unavailable: app still works for this session */ }
   }
 
@@ -254,6 +255,7 @@
     renderView();
     $('#fTz').textContent = state.tz.replace(/_/g, ' ');
     renderTzPicker();
+    renderClocks();
     lastMinute = '';
     tick();
     save();
@@ -467,6 +469,11 @@
       return { z, off, local, name, key: `${name} ${z} ${off} ${off.replace('GMT', 'UTC')} ${local ? 'local' : ''}`.toLowerCase() };
     });
   }
+  function matchZones(q) {
+    if (!zoneList) buildZones();
+    const words = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    return zoneList.filter((x) => words.every((w) => x.key.includes(w)));
+  }
   const tzPop = $('#tzPop'), tzSearch = $('#tzSearch'), tzListEl = $('#tzList'), tzBtn = $('#tzBtn');
   let tzMatches = [], tzActive = 0;
 
@@ -477,7 +484,7 @@
   }
   function filterTz() {
     const words = tzSearch.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
-    tzMatches = zoneList.filter((x) => words.every((w) => x.key.includes(w)));
+    tzMatches = matchZones(tzSearch.value);
     tzActive = Math.max(0, tzMatches.findIndex((x) => x.z === state.tz));
     if (words.length) tzActive = 0;
     tzListEl.innerHTML = tzMatches.length
@@ -528,6 +535,110 @@
     if (li) setTz(li.dataset.tz);
   });
   document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('#tzPick')) closeTz(false); });
+
+  // ---------- world clock ----------
+  const clocksDlg = $('#clocks');
+  let cmpAt = null; // null = live "now"; otherwise a fixed moment to compare
+  const timeIn = (ms, tz) => { const p = parts(ms, tz); return `${h12(p.h)}:${pad(p.mi)} ${ampm(p.h)}`; };
+  function diffLabel(ms, tz) {
+    const mins = Math.round((tzOffset(ms, tz) - tzOffset(ms, state.tz)) / 60000);
+    if (!mins) return 'Same time';
+    const a = Math.abs(mins), h = Math.floor(a / 60), m = a % 60;
+    return `${mins > 0 ? '+' : '−'}${h ? `${h}h` : ''}${m ? ` ${m}m` : ''}`.trim();
+  }
+  function dayLabel(ms, tz) {
+    const n = daysBetween(dateIn(ms, state.tz), dateIn(ms, tz));
+    return n === 0 ? '' : n === 1 ? 'Tomorrow' : n === -1 ? 'Yesterday' : fmt(dateIn(ms, tz), { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function hourHint(ms, tz) {
+    const h = parts(ms, tz).h;
+    if (h >= 9 && h < 18) return '<span class="hint work">Work hours</span>';
+    if (h >= 22 || h < 7) return '<span class="hint night">Night</span>';
+    return '<span></span>';
+  }
+
+  function renderClocks() {
+    if (!clocksDlg.open) return;
+    const now = Date.now(), at = cmpAt ?? now;
+    $('#myZone').textContent = `${state.tz === localTz ? 'Your time · ' : ''}${state.tz.replace(/_/g, ' ')} (${shortOffset(now, state.tz)})`;
+    $('#myClock').textContent = timeIn(now, state.tz);
+    $('#myDate').textContent = fmt(dateIn(now, state.tz), { weekday: 'long', day: 'numeric', month: 'long' });
+    if (cmpAt == null && document.activeElement !== $('#cmpTime') && document.activeElement !== $('#cmpDate')) {
+      $('#cmpDate').value = dateIn(now, state.tz);
+      $('#cmpTime').value = toTimeInput(minutesOf(now));
+    }
+    $('#cmpNow').hidden = cmpAt == null;
+    const zones = state.clocks.filter((z) => z !== state.tz);
+    $('#clockList').innerHTML = zones.length
+      ? zones.map((z) => `<li class="clock-row">
+          <span class="clock-name"><b>${esc(cityOf(z))}</b><small>${esc(z.includes('/') ? z.split('/')[0].replace(/_/g, ' ') : 'Universal')} · ${esc(shortOffset(at, z))}</small></span>
+          <span class="clock-time"><b>${timeIn(at, z)}</b><small>${[dayLabel(at, z), diffLabel(at, z)].filter(Boolean).join(' · ')}</small></span>
+          ${hourHint(at, z)}
+          <button type="button" class="del" data-clock-del="${esc(z)}" aria-label="Remove ${esc(cityOf(z))}">${ICONS.x}</button>
+        </li>`).join('')
+      : '<li class="clock-empty">Add a time zone below to compare times.</li>';
+  }
+  function openClocks() {
+    cmpAt = null;
+    clocksDlg.showModal();
+    $('#clockSearch').value = '';
+    $('#clockResults').hidden = true;
+    renderClocks();
+  }
+  function setCompare() {
+    const d = $('#cmpDate').value, t = $('#cmpTime').value;
+    if (!d || !t) return;
+    const [hh, mm] = t.split(':').map(Number);
+    cmpAt = zonedToUtc(d, hh * 60 + mm, state.tz);
+    renderClocks();
+  }
+  $('#clocksBtn').addEventListener('click', openClocks);
+  $('#cmpDate').addEventListener('change', setCompare);
+  $('#cmpTime').addEventListener('change', setCompare);
+  $('#cmpTime').addEventListener('input', setCompare);
+  $('#cmpNow').addEventListener('click', () => { cmpAt = null; renderClocks(); });
+  clocksDlg.addEventListener('click', (ev) => {
+    if (ev.target === clocksDlg || ev.target.closest('[data-close-clocks]')) { clocksDlg.close(); return; }
+    const del = ev.target.closest('[data-clock-del]');
+    if (del) { state.clocks = state.clocks.filter((z) => z !== del.dataset.clockDel); save(); renderClocks(); return; }
+    const add = ev.target.closest('[data-clock-add]');
+    if (add) addClock(add.dataset.clockAdd);
+  });
+  function addClock(z) {
+    if (!state.clocks.includes(z)) state.clocks.push(z);
+    save();
+    $('#clockSearch').value = '';
+    $('#clockResults').hidden = true;
+    renderClocks();
+    $('#clockSearch').focus();
+  }
+  let clockHits = [], clockActive = 0;
+  function showClockResults() {
+    const q = $('#clockSearch').value;
+    const box = $('#clockResults');
+    if (!q.trim()) { box.hidden = true; return; }
+    clockHits = matchZones(q).filter((x) => !state.clocks.includes(x.z) && x.z !== state.tz).slice(0, 40);
+    clockActive = 0;
+    box.hidden = false;
+    box.innerHTML = clockHits.length
+      ? clockHits.map((x, i) => `<li data-clock-add="${esc(x.z)}"${i === 0 ? ' class="active"' : ''}><span>${esc(x.name)}</span><small>${esc(x.off)}</small></li>`).join('')
+      : '<li class="tz-empty">No matching timezones</li>';
+  }
+  $('#clockSearch').addEventListener('input', showClockResults);
+  $('#clockSearch').addEventListener('keydown', (ev) => {
+    const items = [...$('#clockResults').querySelectorAll('[data-clock-add]')];
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      ev.preventDefault();
+      if (!items.length) return;
+      clockActive = (clockActive + (ev.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items.forEach((li, i) => li.classList.toggle('active', i === clockActive));
+      items[clockActive].scrollIntoView({ block: 'nearest' });
+    } else if (ev.key === 'Enter') {
+      ev.preventDefault();
+      if (clockHits[clockActive]) addClock(clockHits[clockActive].z);
+    }
+  });
+  setInterval(renderClocks, 1000);
 
   // ---------- live bits: now line, day rollover ----------
   let lastMinute = '';
@@ -895,7 +1006,7 @@
 
   // keyboard shortcuts: d / w / m, t, n, ← →
   document.addEventListener('keydown', (ev) => {
-    if (dlg.open || scopeDlg.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (dlg.open || scopeDlg.open || clocksDlg.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (ev.target.closest('input, textarea, select')) return;
     const k = ev.key.toLowerCase();
     if (k === 'd') setView('day');
