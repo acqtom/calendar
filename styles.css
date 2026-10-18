@@ -428,6 +428,29 @@ select {
 .btn.btn-kill { background: var(--danger); }
 .btn.btn-kill:hover { background: #b83030; }
 .kill-empty { color: var(--dim); font-size: 14px; padding: 18px; text-align: center; border: 1.5px dashed var(--line-strong); border-radius: 10px; }
+/* roomier sizing for the Kill list window */
+.sheet.kill { width: min(880px, calc(100vw - 32px)); }
+.kill .kill-body { padding: 30px; gap: 20px; }
+.kill .sheet-head h2 { font-size: 32px; }
+.kill .kill-form { padding: 22px; gap: 16px; }
+.kill .kill-row { gap: 14px; }
+.kill .field { gap: 8px; }
+.kill .field > span { font-size: 14.5px; }
+.kill .kill-form input, .kill .kill-form select { min-height: 50px; font-size: 16px; padding-left: 14px; }
+.kill .kf-add { height: 50px; padding: 0 26px; font-size: 17px; }
+.kill .kill-new-client input { height: 46px; }
+.kill .filter-chip { padding: 7px 16px; font-size: 14.5px; }
+.kill .kill-list { gap: 12px; }
+.kill .kill-item { padding: 16px 14px 16px 16px; gap: 16px; border-radius: 12px; }
+.kill .pri select { width: 54px; height: 54px; font-size: 23px; border-radius: 12px; }
+.kill .kill-check { gap: 14px; font-size: 17px; }
+.kill .kill-check .box { width: 24px; height: 24px; margin-top: 3px; }
+.kill .kill-check .box::after { width: 6px; height: 11px; }
+.kill .kill-text { gap: 6px; }
+.kill .kill-meta { font-size: 13.5px; gap: 8px; }
+.kill .client-tag { padding: 3px 10px; }
+.kill .kill-empty { padding: 26px; font-size: 15px; }
+
 @media (max-width: 640px) {
   .kill-btn span { display: none; }
   .kill-row-top { grid-template-columns: 1fr 1fr; }
