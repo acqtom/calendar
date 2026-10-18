@@ -361,6 +361,32 @@ select {
 .ev-short .ev-title { -webkit-line-clamp: 1; }
 .ev-done .ev-title { text-decoration: line-through; opacity: .6; }
 
+/* ---------- Dragging ---------- */
+.ev, .chip { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.ev { cursor: grab; }
+.ev.dragging {
+  z-index: 10; cursor: grabbing; opacity: .95;
+  border-color: var(--ink); box-shadow: 4px 4px 0 var(--ink);
+  transition: none;
+}
+.ev-drag-time { font-size: 11px; font-weight: 700; white-space: nowrap; color: color-mix(in srgb, var(--c) 72%, #000); }
+.chip.dragging { opacity: .35; }
+.drag-ghost {
+  position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none;
+  border: 1.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink);
+}
+.mc.drop-target { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+body.is-dragging, body.is-dragging * { cursor: grabbing !important; }
+
+.sheet-sm { width: min(420px, calc(100vw - 32px)); }
+.ask { gap: 14px !important; }
+.ask h2 { font-size: 22px; font-weight: 800; }
+.ask p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.45; }
+.ask-btns { display: flex; gap: 12px; flex-wrap: wrap; padding: 4px 4px 4px 0; }
+.ask-btns .btn { flex: 1; }
+.link-btn { align-self: center; background: none; border: 0; padding: 4px; color: var(--muted); font-size: 14px; font-weight: 600; }
+.link-btn:hover { color: var(--text); text-decoration: underline; }
+
 /* ---------- Untimed day tasks ---------- */
 .allday-label {
   border-top: 1px solid var(--grid);

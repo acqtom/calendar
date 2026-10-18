@@ -161,6 +161,19 @@
     </form>
   </dialog>
 
+  <!-- Asked when a repeating task is dragged -->
+  <dialog id="scopeAsk" class="sheet sheet-sm">
+    <form method="dialog" class="ask">
+      <h2>Move repeating task</h2>
+      <p id="scopeText"></p>
+      <div class="ask-btns">
+        <button type="button" data-scope="one" class="btn">Just this event</button>
+        <button type="button" data-scope="all" class="btn primary">All events</button>
+      </div>
+      <button type="button" data-scope="" class="link-btn">Cancel</button>
+    </form>
+  </dialog>
+
   <script src="app.js"></script>
 </body>
 </html>

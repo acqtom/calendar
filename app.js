@@ -532,6 +532,7 @@
   // ---------- live bits: now line, day rollover ----------
   let lastMinute = '';
   function tick() {
+    if (drag?.active) return; // don't redraw under a drag
     const p = parts(Date.now(), state.tz);
     const minuteKey = `${ymd(p.y, p.m, p.d)}|${p.h}:${p.mi}`;
     if (minuteKey === lastMinute) return;
@@ -853,6 +854,7 @@
     document.querySelector(`[data-addsub="${e.id}"] input`)?.focus();
   }
   function onViewClick(ev) {
+    if (justDragged) return; // the click that ends a drag
     const del = ev.target.closest('[data-todo-del]');
     if (del) {
       const { d, list, item } = findTodo(del.dataset.todoDel);
@@ -893,7 +895,7 @@
 
   // keyboard shortcuts: d / w / m, t, n, ← →
   document.addEventListener('keydown', (ev) => {
-    if (dlg.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    if (dlg.open || scopeDlg.open || ev.metaKey || ev.ctrlKey || ev.altKey) return;
     if (ev.target.closest('input, textarea, select')) return;
     const k = ev.key.toLowerCase();
     if (k === 'd') setView('day');
@@ -904,6 +906,175 @@
     else if (ev.key === 'ArrowLeft') step(-1);
     else if (ev.key === 'ArrowRight') step(1);
   });
+
+  // ---------- drag to move ----------
+  // Day/week: drag a block to a new time or day (15-minute steps). Month: drag a chip to another day.
+  const SNAP = 15;
+  let drag = null, justDragged = false;
+
+  function occFor(e, key) {
+    if (!e.repeat || !key) return { e, key: '', start: e.start, end: e.end };
+    const tz = e.tz || state.tz, p = parts(e.start, tz);
+    const st = zonedToUtc(key, p.h * 60 + p.mi, tz);
+    return { e, key, start: st, end: st + (e.end - e.start) };
+  }
+
+  view.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return;
+    const el = ev.target.closest('.ev, .chip');
+    const e = el && findEvent(el.dataset.ev);
+    if (!e) return;
+    const r = el.getBoundingClientRect();
+    drag = {
+      el, o: occFor(e, el.dataset.occ), kind: el.classList.contains('ev') ? 'grid' : 'month',
+      x0: ev.clientX, y0: ev.clientY, grabX: ev.clientX - r.left, grabY: ev.clientY - r.top,
+      pointerId: ev.pointerId, touch: ev.pointerType === 'touch', active: false, timer: null,
+    };
+    // on touch, hold briefly to pick a task up so normal swipes still scroll
+    if (drag.touch) drag.timer = setTimeout(() => drag && !drag.active && startDrag(), 350);
+  });
+
+  function startDrag() {
+    drag.active = true;
+    document.body.classList.add('is-dragging');
+    drag.el.classList.add('dragging');
+    try { drag.el.setPointerCapture(drag.pointerId); } catch { /* capture is a nicety */ }
+    if (drag.kind === 'month') {
+      const g = drag.el.cloneNode(true);
+      g.classList.remove('dragging');
+      g.classList.add('drag-ghost');
+      g.style.width = `${drag.el.getBoundingClientRect().width}px`;
+      document.body.append(g);
+      drag.ghost = g;
+    } else {
+      drag.label = document.createElement('span');
+      drag.label.className = 'ev-drag-time';
+      drag.el.append(drag.label);
+      drag.el.style.left = '3px';
+      drag.el.style.width = 'calc(100% - 6px)';
+    }
+  }
+
+  function moveGrid(ev) {
+    const sc = view.querySelector('.tg-scroll');
+    const headBottom = sc.querySelector('.tg-head').getBoundingClientRect().bottom;
+    const r = sc.getBoundingClientRect();
+    if (ev.clientY < headBottom + 30) sc.scrollTop -= 14;
+    else if (ev.clientY > r.bottom - 30) sc.scrollTop += 14;
+    const col = document.elementsFromPoint(ev.clientX, Math.max(ev.clientY, headBottom + 1)).find((n) => n.matches?.('.tg-col')) || drag.el.parentElement;
+    if (col !== drag.el.parentElement) col.append(drag.el);
+    const y = ev.clientY - col.getBoundingClientRect().top - drag.grabY;
+    const min = Math.max(0, Math.min(1440 - SNAP, Math.round(((y / HOUR) * 60) / SNAP) * SNAP));
+    drag.date = col.dataset.col;
+    drag.min = min;
+    drag.el.style.top = `${(min / 60) * HOUR}px`;
+    const st = zonedToUtc(drag.date, min, state.tz);
+    drag.label.textContent = timeRange({ start: st, end: st + (drag.o.end - drag.o.start) });
+  }
+
+  function moveMonth(ev) {
+    drag.ghost.style.transform = `translate(${ev.clientX - drag.grabX}px, ${ev.clientY - drag.grabY}px)`;
+    const cell = document.elementsFromPoint(ev.clientX, ev.clientY).find((n) => n.matches?.('.mc'));
+    view.querySelectorAll('.drop-target').forEach((n) => { if (n !== cell) n.classList.remove('drop-target'); });
+    cell?.classList.add('drop-target');
+    drag.date = cell?.dataset.cell || null;
+  }
+
+  document.addEventListener('pointermove', (ev) => {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+    if (!drag.active) {
+      const dist = Math.hypot(ev.clientX - drag.x0, ev.clientY - drag.y0);
+      if (drag.touch) { if (dist > 8) { clearTimeout(drag.timer); drag = null; } return; }
+      if (dist < 5) return;
+      startDrag();
+    }
+    ev.preventDefault();
+    if (drag.kind === 'grid') moveGrid(ev); else moveMonth(ev);
+  });
+  document.addEventListener('touchmove', (ev) => { if (drag?.active) ev.preventDefault(); }, { passive: false });
+
+  function endDrag(ev) {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+    clearTimeout(drag.timer);
+    const d = drag;
+    drag = null;
+    if (!d.active) return;
+    justDragged = true;
+    setTimeout(() => { justDragged = false; }, 50);
+    document.body.classList.remove('is-dragging');
+    d.ghost?.remove();
+    if (ev.type === 'pointercancel' || !d.date) { render(); return; }
+    const min = d.kind === 'grid' ? d.min : minutesOf(d.o.start);
+    const newStart = zonedToUtc(d.date, min, state.tz);
+    if (newStart === d.o.start) { render(); return; }
+    commitMove(d.o, newStart);
+  }
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+
+  // --- applying a move ---
+  const scopeDlg = $('#scopeAsk');
+  let scopeResolve = null;
+  function askScope(e) {
+    $('#scopeText').textContent = `“${e.title || 'This task'}” repeats. Move just this one, or every time it happens?`;
+    scopeDlg.showModal();
+    return new Promise((resolve) => { scopeResolve = resolve; });
+  }
+  function finishScope(choice) {
+    const resolve = scopeResolve;
+    scopeResolve = null;
+    if (scopeDlg.open) scopeDlg.close();
+    resolve?.(choice);
+  }
+  scopeDlg.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-scope]');
+    if (b) finishScope(b.dataset.scope);
+    else if (ev.target === scopeDlg) finishScope('');
+  });
+  scopeDlg.addEventListener('close', () => finishScope('')); // Escape key
+
+  async function commitMove(o, newStart) {
+    const e = o.e, dur = o.end - o.start;
+    if (!e.repeat) {
+      e.start = newStart;
+      e.end = newStart + dur;
+    } else {
+      const scope = await askScope(e);
+      if (scope === 'one') moveOne(o, newStart);
+      else if (scope === 'all') moveSeries(o, newStart);
+    }
+    state.selected = dateOf(newStart);
+    render();
+  }
+
+  // pull one occurrence out of the series as its own task
+  function moveOne(o, newStart) {
+    const e = o.e;
+    const done = new Set(e.checks?.[o.key] || []);
+    const copy = structuredClone(e);
+    Object.assign(copy, { id: uid(), start: newStart, end: newStart + (o.end - o.start), repeat: null });
+    delete copy.tz; delete copy.checks; delete copy.exdates;
+    copy.subtasks = (copy.subtasks || []).map((s) => ({ ...s, done: done.has(s.id) }));
+    (e.exdates ||= []).push(o.key);
+    if (e.checks) delete e.checks[o.key];
+    state.events.push(copy);
+  }
+
+  // shift the whole series by the same days/minutes the occurrence moved
+  function moveSeries(o, newStart) {
+    const e = o.e, r = e.repeat, tz = e.tz || state.tz, dur = e.end - e.start;
+    const op = parts(o.start, tz), np = parts(newStart, tz), bp = parts(e.start, tz);
+    const dayShift = daysBetween(ymd(op.y, op.m, op.d), ymd(np.y, np.m, np.d));
+    const minShift = (np.h * 60 + np.mi) - (op.h * 60 + op.mi);
+    const base = ymd(bp.y, bp.m, bp.d);
+    if (r.freq === 'weekly') r.days = repeatDays(r, base).map((x) => (((x + dayShift) % 7) + 7) % 7);
+    e.start = zonedToUtc(addDays(base, dayShift), bp.h * 60 + bp.mi + minShift, tz);
+    e.end = e.start + dur;
+    const shift = (k) => addDays(k, dayShift);
+    if (e.exdates) e.exdates = e.exdates.map(shift);
+    if (e.checks) e.checks = Object.fromEntries(Object.entries(e.checks).map(([k, v]) => [shift(k), v]));
+    if (r.until) r.until = shift(r.until);
+  }
 
   // ---------- boot ----------
   document.documentElement.style.setProperty('--hour', `${HOUR}px`);
